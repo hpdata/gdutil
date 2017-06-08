@@ -4,7 +4,7 @@ This module supports using Google Drive as a high-performance data archive. You 
 ## Background
 In Google Drive, each folder or file has a unique ID such as `0ByTwsK5_Tl_PemN0QVlYem11Y00` or `root`. The functions in this module identify a file using a folder ID and the file name within the folder. You can find the folder ID from the URL in Google Drive.
 
-This module utilizes [`PyDrive`](https://pypi.python.org/pypi/PyDrive). To use the scripts `list_file`, `get_file`, `put_file`, you must first install the PyDriver module, which you can do using the `pip` command:
+This module utilizes [`PyDrive`](https://pypi.python.org/pypi/PyDrive). To use the scripts `gd_list_file`, `gd_get_file`, `gd_put_file`, you must first install the PyDriver module, which you can do using the `pip` command:
 ```
 pip install PyDrive
 ```
@@ -12,31 +12,31 @@ pip install PyDrive
 ## Authenticate with Your Google Account
 Before you can access your data in Google Drive, you must authenticate using your Google account that has proper permission to the folder in Google Drive. Your Google account must have read access to list or download files, and must have write access to upload files.
 
-The authentication process requires a computer with a web browser and `python` preinstalled. The easiest way to authenticate is to download the Python script `auth.py` (https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/) and run it on your local computer. This scripts can automatically install a temporary copy of `PyDrive` during authentication, so you don't need to install it on your local computer.
+The authentication process requires a computer with a web browser and `python` preinstalled. The easiest way to authenticate is to download the Python script `gd_auth.py` (https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/) and run it on your local computer. This scripts can automatically install a temporary copy of `PyDrive` during authentication, so you don't need to install it on your local computer.
 
 If you use a Windows computer, please first install `Miniconda` (https://conda.io/miniconda.html) if you do not yet have Python. Then, you can run these two commands in the Windows PowerShell:
 '''
-curl https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/auth.py -outfile auth.py
-python auth.py
+curl https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/gd_auth.py -outfile gd_auth.py
+python gd_auth.py
 '''
 On Mac or Linux, which already have Python preinstalled, run the following two commands instead:
 '''
-curl -s -O https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/auth.py
-python auth.py
+curl -s -O https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/gd_auth.py
+python gd_auth.py
 '''
 After the scripts complete, you can find a file named `mycred.txt`  in your current working directory. Copy this file to a computer where you will use the module to upload or download files. Please keep this file secret to prevent others gaining unauthorized access to your account. For even stronger security, you are recommended to generate your credential for the application (see below for detail).
 
 ## List Files in Google Drive
 You can list the file using the following command:
 ```
-list_files.py <folder_id>
+gd_list_files <folder_id>
 ```
 It will list the IDs and sizes of the files in the folder. If `-p <parent_id>` is missing, the default parent folder is the `root` directory of your Google account.
 
 ### Download a List of Files
 You can download a list of files using the following command:
 ```
-get_file.py -O -p <parent_id> <filename1> ...
+gd_get_file -O -p <parent_id> <filename1> ...
 ```
 It downloads a file in the parent folder and saves it using the given file name. The file name can also contain subdirectory names relative to the parent folder, and the path will be preserved when downloading the file.
 
@@ -44,14 +44,14 @@ If `-p <parent_id>` is missing, the default parent folder is the `root` director
 
 You can also specify a local directory name using the `-d /local/path` option. For example,
 ```
-get_file.py -O -p <parent_id> -d /tmp <filename1> ...
+gd_get_files -O -p <parent_id> -d /tmp <filename1> ...
 ```
 This script will show the progress while downloading. To disable it, use the '-s' option.
 
 ### Upload a List of Files
 You can upload a list of files onto Google Drive using the following command:
 ```
-put_files.py -p <parent_id> <filename1> ...
+gd_put_files -p <parent_id> <filename1> ...
 ```
 If `-p <parent_id>` is missing, the default parent folder is the root directory of your Google account. The file name can contain a relative path, which will be preserved after uploading. By default, the local path is relative to the current working directory. You can use the `-d <local_folder>` to specify a local root directory, and the path will be then relative to this folder.
 

@@ -4,7 +4,7 @@ This module supports using Google Drive as a high-performance data archive. You 
 ## Background
 In Google Drive, each folder or file has a unique ID such as `0ByTwsK5_Tl_PemN0QVlYem11Y00` or `root`. The functions in this module identify a file using a folder ID and the file name within the folder. You can find the folder ID from the URL in Google Drive.
 
-This module utilizes [`PyDrive`](https://pypi.python.org/pypi/PyDrive). To use the scripts `gd_list_file`, `gd_get_file`, `gd_put_file`, you must first install the PyDriver module, which you can do using the `pip` command:
+This module utilizes [`PyDrive`](https://pypi.python.org/pypi/PyDrive). To use the scripts `gd-ls`, `gd-get`, `gd-put`, you must first install the PyDriver module, which you can do using the `pip` command:
 ```
 pip install PyDrive
 ```
@@ -29,14 +29,20 @@ After the scripts complete, you can find a file named `mycred.txt`  in your curr
 ## List Files in Google Drive
 You can list the file using the following command:
 ```
-gd_list_files <folder_id>
+gd-ls -p <folder_id> -l
 ```
-It will list the IDs and sizes of the files in the folder. If `-p <parent_id>` is missing, the default parent folder is the `root` directory of your Google account.
+It will list the IDs and sizes of the specified files in the folder. If `-p <parent_id>` is not present, the default parent folder is the `root` directory of your Google account. The optional `-l` specifies the long output format.
+
+In addition, you can also specify file names using the UNIX file-name patterns, such as
+```
+gd-ls -p <folder_id> 'data*/prefix_*.txt'
+```
+which would list all the files that match the patter `prefix_*.txt` in subfolders whose names start with `data` in the given parent folder.
 
 ### Download a List of Files
 You can download a list of files using the following command:
 ```
-gd_get_file -O -p <parent_id> <filename1> ...
+gd-get -O -p <parent_id> <filename1> ...
 ```
 It downloads a file in the parent folder and saves it using the given file name. The file name can also contain subdirectory names relative to the parent folder, and the path will be preserved when downloading the file.
 
@@ -51,7 +57,7 @@ This script will show the progress while downloading. To disable it, use the '-s
 ### Upload a List of Files
 You can upload a list of files onto Google Drive using the following command:
 ```
-gd_put_files -p <parent_id> <filename1> ...
+gd-put -p <parent_id> <filename1> ...
 ```
 If `-p <parent_id>` is missing, the default parent folder is the root directory of your Google account. The file name can contain a relative path, which will be preserved after uploading. By default, the local path is relative to the current working directory. You can use the `-d <local_folder>` to specify a local root directory, and the path will be then relative to this folder.
 

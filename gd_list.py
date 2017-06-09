@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-List file names, their IDs and sizes in a Google Drive
+List file names, their IDs and sizes in Google Drive
 """
 
 
@@ -31,14 +31,22 @@ def parse_args(description):
     return args
 
 
-def list_files(drive, folder_id, glob='', parent=''):
+def list_files(drive, folder_id, gpattern='', parent=''):
     "Obtain a list of files and store into a dictionary"
     import fnmatch
 
-    # Obtain the list of files
-    file_list = drive.ListFile({'q': "'" + folder_id + "' in parents " +
-                                "and trashed=false"}).GetList()
-    patterns = glob.split('/')
+    patterns = gpattern.split('/')
+
+    if patterns[0] and '*' not in patterns[0] and \
+       '?' not in patterns[0] and '[' not in patterns[0]:
+        # Obtain the exact file
+        file_list = drive.ListFile({'q': "'" + folder_id + "' in parents " +
+                                    "and trashed=false and title='" +
+                                    patterns[0] + "'"}).GetList()
+    else:
+        # Obtain the list of files
+        file_list = drive.ListFile({'q': "'" + folder_id + "' in parents " +
+                                    "and trashed=false"}).GetList()
 
     # put files into a dictionary
     ls = {}
@@ -49,9 +57,13 @@ def list_files(drive, folder_id, glob='', parent=''):
                                      '/'.join(patterns[1:]),
                                      parent + file1['title'] + '/'))
             elif 'fileSize' in file1:
-                ls[parent + file1['title']] = file1['id'], file1['fileSize']
+                ls[parent + file1['title']] = file1['id'], \
+                    file1['fileSize'], file1['modifiedDate'], \
+                    file1['shared'], file1['editable']
             else:
-                ls[parent + file1['title']] = file1['id'], 'directory'
+                ls[parent + file1['title']] = file1['id'], \
+                    'd', file1['modifiedDate'], \
+                    file1['shared'], file1['editable']
 
     return ls
 
@@ -60,6 +72,7 @@ if __name__ == "__main__":
     import os
     from pydrive.drive import GoogleDrive
     from gd_auth import authenticate
+    from hurry.filesize import size as filesize
 
     args = parse_args(__doc__)
 
@@ -73,22 +86,38 @@ if __name__ == "__main__":
     drive = GoogleDrive(gauth)
     ls = list_files(drive, folder_id, args.pattern)
 
-    if args.long:
-        for key, value in sorted(ls.items()):
-            if ' ' in key:
-                name = '"' + key + '"'
-            else:
-                name = key
+    try:
+        use_color = os.environ["LS_COLORS"] != ""
+    except:
+        use_color = False
 
-            if value[1] == 'directory':
-                print(name + ', ' +
-                      'id:' + value[0] + ', ' + 'size: ' + value[1])
+    for key, value in sorted(ls.items()):
+        if ' ' in key:
+            name = '"' + key + '"'
+        else:
+            name = key
+
+        if value[3]:
+            permission = 'w'
+        else:
+            permission = 'r'
+
+        if args.long and value[1] == 'd':
+            if use_color:
+                print(permission + ' ' + value[2][:-5] +
+                      '  dir  \033[0;34m' +
+                      name + '\033[0m/' + ' => ' +
+                      '  \033[0;32m' + value[0] + '\033[0m')
             else:
-                print(name + ', ' +
-                      'id:' + value[0] + ', ' + value[1])
-    else:
-        for key, value in sorted(ls.items()):
-            if ' ' in key:
-                print('"' + key + '"')
+                print(permission + ' ' + value[2][:-5] + '  dir  ' +
+                      name + '/' + ' => ' + value[0])
+        elif value[1] == 'd':
+            if use_color:
+                print('\033[0;34m' + name + '\033[0m/')
             else:
-                print(key)
+                print(name + '/')
+        elif args.long:
+            print(permission + ' ' + value[2][:-5] +
+                  '{:>5}'.format(filesize(int(value[1]))) + '  ' + name)
+        else:
+            print(name)

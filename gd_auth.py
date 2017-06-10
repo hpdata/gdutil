@@ -71,7 +71,7 @@ def install_pydrive(verbose=False):
     return tmpdir
 
 
-def authenticate(src_dir, verbose=False):
+def authenticate(src_dir, cmdline=False, verbose=False):
     """"
     Authenticate using web browser and cache the credential.
     """
@@ -128,8 +128,11 @@ def authenticate(src_dir, verbose=False):
             print('*** This needs to be done only once.')
 
         try:
-            # Authenticate if the credential does not exist
-            gauth.LocalWebserverAuth()
+            if cmdline:
+                gauth.CommandLineAuth()
+            else:
+                # Authenticate if the credential does not exist
+                gauth.LocalWebserverAuth()
 
             # Save the current credentials to a file
             gauth.SaveCredentialsFile(src_dir + "/" + credfile)
@@ -154,6 +157,11 @@ if __name__ == "__main__":
                         'The default is current directory',
                         default=".")
 
+    parser.add_argument('-n', '--no-browser',
+                        help='Do not use browser but command-line.',
+                        action='store_true',
+                        default=False)
+
     parser.add_argument('-q', '--quiet',
                         help='Silient all screen output.',
                         action='store_true',
@@ -168,7 +176,7 @@ if __name__ == "__main__":
         tmpdir = install_pydrive(not args.quiet)
 
     # Athenticate
-    gauth = authenticate(args.dir, not args.quiet)
+    gauth = authenticate(args.dir, args.no_browser, not args.quiet)
 
     if tmpdir:
         shutil.rmtree(tmpdir)

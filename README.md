@@ -1,48 +1,57 @@
-# Google Drive as High-Performance Data Archive
-This module supports using Google Drive as a high-performance data archive. You can use it to authenticate with your Google account, download files using a folder ID and the file names within the folder, and upload a file using a folder ID and the local file names.
+# GDKit: Using Google Drive for High-Performance Data Repository
+This module supports using Google Drive as a high-performance data repository. You can use it to download and upload files and folders between your local computer and Google Drive with multiple streams concurrently. GDkit is implemented using [`PyDrive`](https://pypi.python.org/pypi/PyDrive). It can be used as a command-line toolkit or be used as a module for Python.
 
-## Background
-In Google Drive, each folder or file has a unique ID such as `0ByTwsK5_Tl_PemN0QVlYem11Y00` or `root`. The functions in this module identify a file using a folder ID and the file name within the folder. You can find the folder ID from the URL in Google Drive.
+## Install GDKit
+GitKit requires Python, which is typically preinstalled on Mac or Linux. If you use a Windows computer with Python, we recommend `Miniconda` (https://conda.io/miniconda.html).
 
-This module utilizes [`PyDrive`](https://pypi.python.org/pypi/PyDrive). To use the scripts `gd-ls`, `gd-get`, `gd-put`, you must first install the PyDriver module, which you can do using the `pip` command:
+After installing Python, you can then install GDKit and its dependencies using the `pip` command:
 ```
-pip install PyDrive
+pip install gdkit
+```
+
+**Note: This is not yet implemented. At the current development stage of GDKit, you must download GDKit manually and then install its dependencies using the `pip` command:**
+```
+pip install -r gdkit/requirements.txt
 ```
 
 ## Authenticate with Your Google Account
-Before you can access your data in Google Drive, you must authenticate using your Google account that has proper permission to the folder in Google Drive. Your Google account must have read access to list or download files, and must have write access to upload files.
+Before you can access your data in Google Drive, you must authenticate using a Gmail account that has proper permissions to the data repository. Read access is required to list or download files, and write access is required to upload files.
 
-The authentication process requires a computer with a web browser and `python` preinstalled. The easiest way to authenticate is to download the Python script `gd_auth.py` (https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/) and run it on your local computer. This scripts can automatically install a temporary copy of `PyDrive` during authentication, so you don't need to install it on your local computer.
+The authentication process requires you have access to a webbrowser and the command `gdk-auth`:
+```
+gdk-auth [-c /path/to/config/dir]
+```
+The parameter is optional. If not present, the default directory is `~/.config/gdkit`.
 
-If you use a Windows computer, please first install `Miniconda` (https://conda.io/miniconda.html) if you do not yet have Python. Then, you can run these two commands in the Windows PowerShell:
+You can also run the authentication process on a separate computer that has Python. On Windows, you can run these two commands in the Windows PowerShell:
 '''
-curl https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/gd_auth.py -outfile gd_auth.py
-python gd_auth.py
+curl https://raw.githubusercontent.com/hpdata/gdkit/master/gdk_auth.py -outfile gdk_auth.py
+python gdk_auth.py -c .
 '''
-On Mac or Linux, which already have Python preinstalled, run the following two commands instead:
+On Mac or Linux, run the following two commands instead:
 '''
-curl -s -O https://raw.githubusercontent.com/compdatasci/gdrive-archive/master/gd_auth.py
-python gd_auth.py
+curl -s -O https://raw.githubusercontent.com/hpdata/gdkit/master/gdk_auth.py
+python gdk_auth.py -c .
 '''
-After the scripts complete, you can find a file named `mycred.txt`  in your current working directory. Copy this file to a computer where you will use the module to upload or download files. Please keep this file secret to prevent others gaining unauthorized access to your account. For even stronger security, you are recommended to generate your credential for the application (see below for detail).
+After running the commands, you will find a file named `mycred.txt` in your current working directory. Copy this file to a computer where you will use the module to upload or download files. Please keep this file secret to prevent others gaining unauthorized access to your account.
 
-## List Files in Google Drive
+## List Files in a Google Drive Folder
 You can list the file using the following command:
 ```
-gd-ls -p <folder_id> -l
+gdk-ls -p <folder_id> -l
 ```
 It will list the IDs and sizes of the specified files in the folder. If `-p <parent_id>` is not present, the default parent folder is the `root` directory of your Google account. The optional `-l` specifies the long output format.
 
-In addition, you can also specify file names using the UNIX file-name patterns, such as
+In addition, you can also specify file names using the UNIX file-name patterns. For example, you can use the command
 ```
-gd-ls -p <folder_id> 'data*/prefix_*.txt'
+gdk-ls -p <folder_id> 'data*/prefix_*.txt'
 ```
-which would list all the files that match the patter `prefix_*.txt` in subfolders whose names start with `data` in the given parent folder.
+which would look for subfofolders whose names start with `data` in the given parent folder, and then list the files that match the patter `prefix_*.txt` in the subfolders.
 
 ### Download a List of Files
 You can download a list of files using the following command:
 ```
-gd-get -O -p <parent_id> <filename1> ...
+gdk-get -O -p <parent_id> <filename1> ...
 ```
 It downloads a file in the parent folder and saves it using the given file name. The file name can also contain subdirectory names relative to the parent folder, and the path will be preserved when downloading the file.
 
@@ -50,14 +59,14 @@ If `-p <parent_id>` is missing, the default parent folder is the `root` director
 
 You can also specify a local directory name using the `-d /local/path` option. For example,
 ```
-gd_get_files -O -p <parent_id> -d /tmp <filename1> ...
+gdk_get_files -O -p <parent_id> -d /tmp <filename1> ...
 ```
 This script will show the progress while downloading. To disable it, use the '-s' option.
 
 ### Upload a List of Files
 You can upload a list of files onto Google Drive using the following command:
 ```
-gd-put -p <parent_id> <filename1> ...
+gdk-put -p <parent_id> <filename1> ...
 ```
 If `-p <parent_id>` is missing, the default parent folder is the root directory of your Google account. The file name can contain a relative path, which will be preserved after uploading. By default, the local path is relative to the current working directory. You can use the `-d <local_folder>` to specify a local root directory, and the path will be then relative to this folder.
 
@@ -65,7 +74,11 @@ When you specify a list of files, the script can upload up to four files concurr
 
 Note: If a file already exists in the parent folder on Google Drive, it will be overwritten. However, Google  Drive stores older version up to 30 days.
 
-## Create Your Own Client Secret
+## Tricks and Tips
+### About Google Drive
+Google Drive is a secure cloud storage, which you authenticate using Gmail accounts. It allows you to share data and control access for public access or individual access. In Google Drive, each folder or file has a unique ID. The root directory of your account has the ID `root`. When you share a folder with someone, you will get a folder ID such as `0ByTwsK5_Tl_PemN0QVlYem11Y00`. The commands and functions in GDKit identify files and folder using a folder ID and then the subdirectory name and file names under the folder.
+
+### Create Your Own Client Secret
 Google Drive's authentication process includes two separate keys: a client secret that identifies the application, and a user key that identifies the Google user. For best protection, it is recommended that you create your own client secret using the Google API Console. Please follow the following steps":
 1. Go to the [Google API Console](https://console.developers.google.com/iam-admin/projects) and create your own project.
 2. Search for 'Drive API', select the entry, and click 'Enable'.

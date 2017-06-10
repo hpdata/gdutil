@@ -22,6 +22,11 @@ def parse_args(description):
                         action="store_true",
                         default=False)
 
+    parser.add_argument('-c', '--config',
+                        help='Configuration directory containing the ' +
+                        ' credential. The default is ~/.config/gdkit/.',
+                        default="")
+
     parser.add_argument('pattern',
                         nargs='?',
                         help='Unix file name pattern (must be in quotes)',
@@ -71,7 +76,7 @@ def list_files(drive, folder_id, gpattern='', parent=''):
 if __name__ == "__main__":
     import os
     from pydrive.drive import GoogleDrive
-    from gd_auth import authenticate
+    from gdk_auth import authenticate
     from hurry.filesize import size as filesize
 
     args = parse_args(__doc__)
@@ -79,8 +84,7 @@ if __name__ == "__main__":
     folder_id = args.parent
 
     # Athenticate
-    src_dir = os.path.dirname(os.path.realpath(__file__))
-    gauth = authenticate(src_dir)
+    gauth = authenticate(args.config)
 
     # Create drive object
     drive = GoogleDrive(gauth)

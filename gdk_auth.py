@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Authenticate for Google Drive access.
@@ -71,7 +71,7 @@ def install_pydrive(verbose=False):
     return tmpdir
 
 
-def authenticate(conf_dir, verbose=False):
+def authenticate(conf_dir, cmdline=False, verbose=False):
     """"
     Authenticate using web browser and cache the credential.
     It first looks for the credential in the current directory,
@@ -85,22 +85,22 @@ def authenticate(conf_dir, verbose=False):
     gauth = GoogleAuth()
 
     if not conf_dir:
-        conf_dir = os.path.expanduser('~') + '/.config/gdrive'
+        conf_dir = os.path.expanduser('~') + '/.config/gdkit'
         if not os.path.exists(conf_dir):
             os.makedirs(conf_dir, 0o700)
 
         if os.path.exists("./mycred.txt"):
             credfile = './mycred.txt'
         else:
-            credfile = conf_dir + 'mycred.txt'
+            credfile = conf_dir + '/mycred.txt'
     else:
-        credfile = conf_dir + 'mycred.txt'
+        credfile = conf_dir + '/mycred.txt'
 
     clientfile = conf_dir + '/' + 'client_secrets.json'
     gauth.settings['client_config_file'] = clientfile
 
-    if not os.path.exists(conf_dir + "/client_secrets.json"):
-        with open('client_secrets.json', 'w') as f:
+    if not os.path.exists(clientfile):
+        with open(clientfile, 'w') as f:
             f.write('{"installed":{"client_id":' +
                     '"493620386912-06j6iof499pgi2r3dtkumesmv61qj8p8' +
                     '.apps.googleusercontent.com",' +
@@ -140,8 +140,11 @@ def authenticate(conf_dir, verbose=False):
             print('*** This needs to be done only once.')
 
         try:
-            # Authenticate if the credential does not exist
-            gauth.LocalWebserverAuth()
+            if cmdline:
+                gauth.CommandLineAuth()
+            else:
+                # Authenticate if the credential does not exist
+                gauth.LocalWebserverAuth()
 
             # Save the current credentials to a file
             gauth.SaveCredentialsFile(credfile)
@@ -163,8 +166,13 @@ if __name__ == "__main__":
 
     parser.add_argument('-c', '--config',
                         help='Configuration directory containing the ' +
-                        ' credential. The default is $HOME/.config/gdrive/.',
+                        ' credential. The default is ~/.config/gdkit/.',
                         default="")
+
+    parser.add_argument('-n', '--no-browser',
+                        help='Do not use browser but command-line.',
+                        action='store_true',
+                        default=False)
 
     parser.add_argument('-q', '--quiet',
                         help='Silient all screen output.',
@@ -180,7 +188,7 @@ if __name__ == "__main__":
         tmpdir = install_pydrive(not args.quiet)
 
     # Athenticate
-    gauth = authenticate(args.config, not args.quiet)
+    gauth = authenticate(args.config, args.no_browser, not args.quiet)
 
     if tmpdir:
         shutil.rmtree(tmpdir)

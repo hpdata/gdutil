@@ -71,20 +71,35 @@ def install_pydrive(verbose=False):
     return tmpdir
 
 
-def authenticate(src_dir, verbose=False):
+def authenticate(conf_dir, verbose=False):
     """"
     Authenticate using web browser and cache the credential.
+    It first looks for the credential in the current directory,
     """
 
     from pydrive.auth import GoogleAuth
+    import os
     import os.path
 
     # Authenticate Google account
     gauth = GoogleAuth()
-    gauth.settings['client_config_file'] = src_dir + '/' + \
-        'client_secrets.json'
 
-    if not os.path.exists(src_dir + "/client_secrets.json"):
+    if not conf_dir:
+        conf_dir = os.path.expanduser('~') + '/.config/gdrive'
+        if not os.path.exists(conf_dir):
+            os.makedirs(conf_dir, 0o700)
+
+        if os.path.exists("./mycred.txt"):
+            credfile = './mycred.txt'
+        else:
+            credfile = conf_dir + 'mycred.txt'
+    else:
+        credfile = conf_dir + 'mycred.txt'
+
+    clientfile = conf_dir + '/' + 'client_secrets.json'
+    gauth.settings['client_config_file'] = clientfile
+
+    if not os.path.exists(conf_dir + "/client_secrets.json"):
         with open('client_secrets.json', 'w') as f:
             f.write('{"installed":{"client_id":' +
                     '"493620386912-06j6iof499pgi2r3dtkumesmv61qj8p8' +
@@ -98,12 +113,10 @@ def authenticate(src_dir, verbose=False):
                     '"redirect_uris":' +
                     '["urn:ietf:wg:oauth:2.0:oob","http://localhost"]}}')
 
-    credfile = 'mycred.txt'
-
     try:
         # Try to load saved client credentials
-        if os.path.exists(src_dir + "/" + credfile):
-            gauth.LoadCredentialsFile(src_dir + "/" + credfile)
+        if os.path.exists(credfile):
+            gauth.LoadCredentialsFile(credfile)
 
         if gauth.credentials is None:
             raise Exception('Empty credential')
@@ -111,7 +124,7 @@ def authenticate(src_dir, verbose=False):
             # Refresh them if expired
             gauth.Refresh()
             # Save the current credentials to a file
-            gauth.SaveCredentialsFile(src_dir + "/" + credfile)
+            gauth.SaveCredentialsFile(credfile)
 
             if verbose:
                 print('Refreshed the credential.')
@@ -119,8 +132,7 @@ def authenticate(src_dir, verbose=False):
             # Initialize the saved creds
             gauth.Authorize()
             if verbose:
-                print('Credential ' + src_dir + "/" +
-                      credfile + ' is up to date.')
+                print('Credential ' + credfile + ' is up to date.')
 
     except:
         if verbose:
@@ -132,10 +144,10 @@ def authenticate(src_dir, verbose=False):
             gauth.LocalWebserverAuth()
 
             # Save the current credentials to a file
-            gauth.SaveCredentialsFile(src_dir + "/" + credfile)
+            gauth.SaveCredentialsFile(credfile)
 
             if verbose:
-                print('Credential saved to ' + src_dir + "/" + credfile)
+                print('Credential saved to ' + credfile)
         except KeyboardInterrupt:
             return None
 
@@ -149,10 +161,10 @@ if __name__ == "__main__":
     # Process command-line arguments
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('-d', '--dir',
-                        help='Directory containing credential. ' +
-                        'The default is current directory',
-                        default=".")
+    parser.add_argument('-c', '--config',
+                        help='Configuration directory containing the ' +
+                        ' credential. The default is $HOME/.config/gdrive/.',
+                        default="")
 
     parser.add_argument('-q', '--quiet',
                         help='Silient all screen output.',
@@ -168,7 +180,7 @@ if __name__ == "__main__":
         tmpdir = install_pydrive(not args.quiet)
 
     # Athenticate
-    gauth = authenticate(args.dir, not args.quiet)
+    gauth = authenticate(args.config, not args.quiet)
 
     if tmpdir:
         shutil.rmtree(tmpdir)

@@ -32,6 +32,11 @@ def parse_args(description):
                         help='Output file name. Use -o - to output to stdout.',
                         default="")
 
+    parser.add_argument('-O', '--remote',
+                        help='Use remote filename as output file name.',
+                        action='store_true',
+                        default=False)
+
     parser.add_argument('-d', '--outdir',
                         help='Local parent directory path. ' +
                         'The default is current directory.',
@@ -109,8 +114,10 @@ def download_file(file1, auth, args):
             fname = args.outdir + args.outfile
         else:
             fname = '-'
+    elif args.remote:
+        fname = basename
     else:
-        fname = args.outdir + basename
+        fname = '-'
 
     # If give file is a folder, create the directory locally
     fileSize = file1['fileSize']
@@ -119,7 +126,7 @@ def download_file(file1, auth, args):
             os.makedirs(fname)
         return
 
-    if os.path.isfile(fname):
+    if fname != '-' and os.path.isfile(fname):
         # Download file only if size is different or checksum is different
         # Compute chksum
         if os.path.getsize(fname) == fileSize and \
@@ -130,7 +137,8 @@ def download_file(file1, auth, args):
                 sys.stderr.flush()
 
             return
-    elif args.preserve and dirname and not os.path.isdir(dirname):
+    elif fname != '-' and args.preserve and \
+            dirname and not os.path.isdir(dirname):
         # Create directory if not exist
         os.makedirs(dirname)
 
@@ -163,7 +171,8 @@ def download_file(file1, auth, args):
         chunksize = min(max(fileSize // 1048576 // 20 *
                             1048576, 1048576), 100 * 1048576)
 
-        media_request = http.MediaIoBaseDownload(f, request, chunksize=chunksize)
+        media_request = http.MediaIoBaseDownload(
+            f, request, chunksize=chunksize)
 
         if not args.quiet:
             bar = ProgressBar(maxval=fileSize)
@@ -180,14 +189,15 @@ def download_file(file1, auth, args):
                 if download_progress:
                     bar.update(int(download_progress.progress() * fileSize))
             if done:
-                if not args.quiet:
-                    bar.finish()
                 break
 
         if fname != '-':
             f.close()
         else:
             sys.stdout.flush()
+
+        if not args.quiet:
+            bar.finish()
 
         elapsed = time.time() - start
 

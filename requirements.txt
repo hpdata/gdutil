@@ -1,2 +1,3 @@
 PyDrive
-hurry.filesize
+requests
+progressbar2

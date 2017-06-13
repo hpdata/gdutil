@@ -7,74 +7,10 @@ Authenticate for Google Drive access.
 import sys
 
 
-def install_pydrive(verbose=False):
-    """
-    Install Pydrive to a temporary directory
-    """
-
-    import tempfile
-    import site
-    import glob
-    import subprocess
-    import os
-
-    tmpdir = tempfile.mkdtemp()
-
-    if verbose:
-        sys.stdout.write('pydrive is missing. Temporily installing it...')
-        sys.stdout.flush()
-
-    try:
-        import pip
-    except:
-        # Try to install pip from source
-        if sys.version_info.major > 2:
-            from urllib.request import urlopen
-        else:
-            from urllib2 import urlopen
-
-        get_pip = tmpdir + '/get_pip.py'
-        response = urlopen('https://bootstrap.pypa.io/get-pip.py')
-
-        with open(get_pip, 'w') as f:
-            f.write(response.read())
-
-        subprocess.call([sys.executable, get_pip,
-                         '-q', '--prefix=' + tmpdir])
-
-        # Refresh path
-        sit_dir = glob.glob(tmpdir + '/*/*/site-packages')
-        site.addsitedir(sit_dir[0])
-        os.environ["PYTHONPATH"] = sit_dir[0]
-        import pip
-
-    # Install pydrive and related packages
-    pip.main(['install', '-q', '--user', '--root', tmpdir, 'six',
-              'httplib2', 'uritemplate', 'pyasn1', 'pyasn1-modules',
-              'rsa', 'oauth2client'])
-    try:
-        pip.main(['install', '-q', '--user', '--root', tmpdir, 'pydrive'])
-    except:
-        pass
-
-    for pattern in ['/*/*/*/site-packages',
-                    '/*/*/.*/*/*/site-packages',
-                    '/*/*/*/*/*/site-packages']:
-        sit_dir = glob.glob(tmpdir + pattern)
-        if sit_dir:
-            site.addsitedir(sit_dir[0])
-            break
-
-    if verbose:
-        print('Done')
-
-    return tmpdir
-
-
 def authenticate(conf_dir, cmdline=False, verbose=False):
     """"
-    Authenticate using web browser and cache the credential.
-    It first looks for the credential in the current directory,
+    Authenticate using web browser and save the credential into specified
+    directory. If directory is not specified, the default is ~/.config/gdkit/.
     """
 
     from pydrive.auth import GoogleAuth
@@ -155,6 +91,70 @@ def authenticate(conf_dir, cmdline=False, verbose=False):
             return None
 
     return gauth
+
+
+def install_pydrive(verbose=False):
+    """
+    Install PyDrive to a temporary directory if needed
+    """
+
+    import tempfile
+    import site
+    import glob
+    import subprocess
+    import os
+
+    tmpdir = tempfile.mkdtemp()
+
+    if verbose:
+        sys.stdout.write('pydrive is missing. Temporily installing it...')
+        sys.stdout.flush()
+
+    try:
+        import pip
+    except:
+        # Try to install pip from source
+        if sys.version_info.major > 2:
+            from urllib.request import urlopen
+        else:
+            from urllib2 import urlopen
+
+        get_pip = tmpdir + '/get_pip.py'
+        response = urlopen('https://bootstrap.pypa.io/get-pip.py')
+
+        with open(get_pip, 'w') as f:
+            f.write(response.read())
+
+        subprocess.call([sys.executable, get_pip,
+                         '-q', '--prefix=' + tmpdir])
+
+        # Refresh path
+        sit_dir = glob.glob(tmpdir + '/*/*/site-packages')
+        site.addsitedir(sit_dir[0])
+        os.environ["PYTHONPATH"] = sit_dir[0]
+        import pip
+
+    # Install pydrive and related packages
+    pip.main(['install', '-q', '--user', '--root', tmpdir, 'six',
+              'httplib2', 'uritemplate', 'pyasn1', 'pyasn1-modules',
+              'rsa', 'oauth2client'])
+    try:
+        pip.main(['install', '-q', '--user', '--root', tmpdir, 'pydrive'])
+    except:
+        pass
+
+    for pattern in ['/*/*/*/site-packages',
+                    '/*/*/.*/*/*/site-packages',
+                    '/*/*/*/*/*/site-packages']:
+        sit_dir = glob.glob(tmpdir + pattern)
+        if sit_dir:
+            site.addsitedir(sit_dir[0])
+            break
+
+    if verbose:
+        print('Done')
+
+    return tmpdir
 
 
 if __name__ == "__main__":

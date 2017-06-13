@@ -72,6 +72,10 @@ def parse_args(description):
     if args.outdir and args.outdir[-1] != '/':
         args.outdir = args.outdir + '/'
 
+    if args.outfile and args.remote:
+        print('The -o and -O options are mutually exclusive.')
+        sys.exit(-1)
+
     return args
 
 
@@ -109,13 +113,10 @@ def download_file(file1, auth, args):
 
     if args.preserve:
         fname = args.outdir + dirname + '/' + basename
-    elif args.outfile:
-        if args.outfile != '-':
-            fname = args.outdir + args.outfile
-        else:
-            fname = '-'
     elif args.remote:
-        fname = basename
+        fname = args.outdir + basename
+    elif args.outfile and args.outfile != '-':
+        fname = args.outdir + args.outfile
     else:
         fname = '-'
 

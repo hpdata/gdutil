@@ -1,4 +1,4 @@
-# GDKit: Using Google Drive for High-Performance Data Repository
+# GDKit: Google Drive as High-Performance Data Repository
 This module supports using Google Drive as a high-performance data repository. You can use it to download and upload files and folders between your local computer and Google Drive with multiple streams concurrently. GDkit is implemented using [`PyDrive`](https://pypi.python.org/pypi/PyDrive). It can be used as a command-line toolkit or be used as a module for Python.
 
 ## Install GDKit

@@ -94,11 +94,11 @@ Google Drive is a secure cloud storage, which you authenticate using Gmail accou
 Google Drive's authentication process includes two separate keys: a client secret that identifies the application, and a user key that identifies the Google user. For best protection, it is recommended that you create your own client secret using the Google API Console. Please follow the following steps":
 1. Go to the [Google API Console](https://console.developers.google.com/iam-admin/projects) and create your own project.
 2. Search for 'Drive API', select the entry, and click 'Enable'.
-3. Select 'Credentials from the left menu, click Create Credentials, select OAuth client ID.
-4. Now, the product name and consent screen need to be set -> click Configure consent screen and follow the instructions. Once finished:
- a. Select Application type to "Other".
+3. Select 'Credentials' from the left menu, click 'Create Credentials', select 'OAuth client ID'.
+4. Now, the product name and consent screen need to be set -> click 'Configure consent screen' and follow the instructions. Once finished:
+ a. Select 'Application type' to "Other".
  b. Enter an appropriate name.
- c. Click Create.
-5. Click Download JSON on the right side of Client ID to download `client_secret_<really long ID>.json`.
+ c. Click 'Create'.
+5. Click 'Download JSON' on the right side of Client ID to download `client_secret_<really long ID>.json`.
 
 The downloaded file has all authentication information of your application. Rename the file to `client_secrets.json` and place it in your working directory and redo the authenticate step to create your `mycred.txt` file again.

@@ -158,7 +158,8 @@ def download_file(file1, auth, args):
 
     if ispub:
         # Use requests module to download a public file, which is faster
-        download_pub_file(file1['id'], fname, fileSize, args.quiet)
+        sz, elapsed = download_pub_file(
+            file1['id'], fname, fileSize, args.quiet)
     else:
         start = time.time()
         if fname != '-':
@@ -200,13 +201,13 @@ def download_file(file1, auth, args):
         if not args.quiet:
             bar.finish()
 
+        sz = fileSize
         elapsed = time.time() - start
 
-        if not args.quiet:
-            sys.stderr.write("Downloaded %s in %.1f seconds at %s\n" %
-                             (sizeof_fmt(fileSize, 'B'), elapsed,
-                              sizeof_fmt(fileSize / elapsed)))
-            sys.stderr.flush()
+    if not args.quiet:
+        sys.stderr.write("Downloaded %s in %.1f seconds at %s\n" %
+                         (sizeof_fmt(sz, 'B'), elapsed,
+                          sizeof_fmt(sz / elapsed)))
 
 
 if __name__ == "__main__":

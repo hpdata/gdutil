@@ -4,5 +4,5 @@ pipelines:
   default:
     - step:
         script: # Mirror the master branch onto Github
-          - git remote add github https://$GIT_USER:$GIT_TOKEN@github.com/hpdata/gdkit
+          - git remote add github https://$GIT_USER:$GIT_TOKEN@github.com/hpdata/gdutil
           - git push github master

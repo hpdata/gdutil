@@ -10,7 +10,7 @@ import sys
 def authenticate(conf_dir, cmdline=False, verbose=False):
     """"
     Authenticate using web browser and save the credential into specified
-    directory. If directory is not specified, the default is ~/.config/gdkit/.
+    directory. If directory is not specified, the default is ~/.config/gdutil/.
     """
 
     from pydrive.auth import GoogleAuth
@@ -21,7 +21,7 @@ def authenticate(conf_dir, cmdline=False, verbose=False):
     gauth = GoogleAuth()
 
     if not conf_dir:
-        conf_dir = os.path.expanduser('~') + '/.config/gdkit'
+        conf_dir = os.path.expanduser('~') + '/.config/gdutil'
         if not os.path.exists(conf_dir):
             os.makedirs(conf_dir, 0o700)
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-c', '--config',
                         help='Configuration directory containing the ' +
-                        ' credential. The default is ~/.config/gdkit/.',
+                        ' credential. The default is ~/.config/gdutil/.',
                         default="")
 
     parser.add_argument('-n', '--no-browser',

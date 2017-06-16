@@ -50,7 +50,7 @@ def parse_args(description):
 
     parser.add_argument('-c', '--config',
                         help='Configuration directory containing the ' +
-                        ' credential. The default is ~/.config/gdkit/.',
+                        ' credential. The default is ~/.config/gdutil/.',
                         default="")
 
     parser.add_argument('-q', '--quiet',

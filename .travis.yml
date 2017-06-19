@@ -12,5 +12,5 @@ script:
   - bin/gd-ls
   - bin/gd-get-pub "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1
   - rm -rf /tmp/MATLAB_R*
-  - bin/gd-get -c . -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1
+  - bin/gd-get -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1
   - rm -rf /tmp/MATLAB_R*

@@ -70,7 +70,6 @@ def get_confirm_token(response):
     "Obtain confirmation token from response"
 
     for key, value in response.cookies.items():
-        sys.stderr.write("key is " + key + " and value is " + value + "\n")
         if key.startswith('download_warning'):
             return value
 
@@ -102,15 +101,14 @@ def write_response_content(response, outfile, filesize, quiet):
     start = time.time()
     if outfile and outfile != '-':
         f = open(outfile, "wb")
+    elif sys.version_info[0] > 2:
+        f = sys.stdout.buffer
     else:
-        try:
-            f = sys.stdout.buffer
-        except:
-            if sys.platform in ["win32", "win64"]:
-                import os
-                import msvcrt
-                msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-            f = sys.stdout
+        f = sys.stdout
+        if sys.platform in ["win32", "win64"]:
+            import os
+            import msvcrt
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
     for chunk in response.iter_content(CHUNK_SIZE):
         if chunk:  # filter out keep-alive new chunks

@@ -31,14 +31,19 @@ def parse_args(description):
                         type=int,
                         default=0)
 
-    parser.add_argument('file_id',
-                        help='ID of the file in Google Drive to be downloaded.',
-                        default="")
-
     parser.add_argument('-q', '--quiet',
                         help='Suppress output.',
                         default=False,
                         action='store_true')
+
+    parser.add_argument('-i', '--id',
+                        help='Dummy tag for compatability with gd-get.',
+                        action='store_true',
+                        default=False)
+
+    parser.add_argument('file_id',
+                        help='ID of the file in Google Drive to be downloaded.',
+                        default="")
 
     args = parser.parse_args()
 

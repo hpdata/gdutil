@@ -7,6 +7,8 @@ This module uses the requests module to download a public file identified
 by its file ID. It does not require PyDrive and Google authentication.
 """
 
+from __future__ import print_function
+
 import requests
 import sys
 
@@ -50,6 +52,11 @@ def download_file(file_id, outfile, filesize, quiet=False):
     session = requests.Session()
 
     response = session.get(URL, params={'id': file_id}, stream=True)
+
+    if len(response.cookies.items()) <= 1:
+        sys.stderr.write("Invalid file ID\n")
+        sys.exit(-1)
+
     token = get_confirm_token(response)
 
     if token:
@@ -95,7 +102,14 @@ def write_response_content(response, outfile, filesize, quiet):
     if outfile and outfile != '-':
         f = open(outfile, "wb")
     else:
-        f = sys.stdout.buffer
+        try:
+            f = sys.stdout.buffer
+        except:
+            if sys.platform in ["win32", "win64"]:
+                import os
+                import msvcrt
+                msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+            f = sys.stdout
 
     for chunk in response.iter_content(CHUNK_SIZE):
         if chunk:  # filter out keep-alive new chunks

@@ -4,6 +4,8 @@
 Download a list of files from Google Drive.
 """
 
+from __future__ import print_function
+
 import sys
 import hashlib
 from gd_auth import authenticate
@@ -72,10 +74,6 @@ def parse_args(description):
     if args.outdir and args.outdir[-1] != '/':
         args.outdir = args.outdir + '/'
 
-    if args.outfile and args.remote:
-        print('The -o and -O options are mutually exclusive.')
-        sys.exit(-1)
-
     return args
 
 
@@ -113,10 +111,10 @@ def download_file(file1, auth, args):
 
     if args.preserve:
         fname = args.outdir + dirname + '/' + basename
-    elif args.remote:
-        fname = args.outdir + basename
     elif args.outfile and args.outfile != '-':
         fname = args.outdir + args.outfile
+    elif args.remote:
+        fname = args.outdir + basename
     else:
         fname = '-'
 
@@ -165,7 +163,14 @@ def download_file(file1, auth, args):
         if fname != '-':
             f = open(fname, "wb")
         else:
-            f = sys.stdout.buffer
+            try:
+                f = sys.stdout.buffer
+            except:
+                if sys.platform in ["win32", "win64"]:
+                    import os
+                    import msvcrt
+                    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+                f = sys.stdout
 
         # Use MediaIoBaseDownload with large chunksize for better performance
         request = auth.service.files().get_media(fileId=file1['id'])

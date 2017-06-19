@@ -1,0 +1,16 @@
+language: C
+
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+    - os: osx
+
+script:
+  - pip install -r requirements.txt
+  - echo "$CRED" > mycred.txt
+  - bin/gd-ls
+  - bin/gd-get-pub "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1
+  - rm -rf /tmp/MATLAB_R*
+  - bin/gd-get -c . -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1
+  - rm -rf /tmp/MATLAB_R*

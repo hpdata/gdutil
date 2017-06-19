@@ -105,7 +105,6 @@ def download_file(file1, auth, args):
     import time
     from apiclient import http
     from apiclient import errors
-    from gd_get_pub import download_file as download_pub_file
 
     dirname, basename = os.path.split(file1['name'])
 
@@ -147,67 +146,54 @@ def download_file(file1, auth, args):
         sys.stderr.flush()
 
     # Check whether file is public
-    permissions = file1['fileobj'].GetPermissions()
-    ispub = False
-    for p in permissions:
-        if p['id'] == 'anyoneWithLink':
-            if p['withLink']:
-                ispub = True
-
-    if ispub:
-        # Use requests module to download a public file, which is faster
-        sz, elapsed = download_pub_file(
-            file1['id'], fname, fileSize, args.quiet)
+    start = time.time()
+    if fname != '-':
+        f = open(fname, "wb")
+    elif sys.version_info[0] > 2:
+        f = sys.stdout.buffer
     else:
-        start = time.time()
-        if fname != '-':
-            f = open(fname, "wb")
-        else:
-            try:
-                f = sys.stdout.buffer
-            except:
-                if sys.platform in ["win32", "win64"]:
-                    import os
-                    import msvcrt
-                    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-                f = sys.stdout
+        f = sys.stdout
+        if sys.platform in ["win32", "win64"]:
+            import os
+            import msvcrt
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-        # Use MediaIoBaseDownload with large chunksize for better performance
-        request = auth.service.files().get_media(fileId=file1['id'])
+    # Use MediaIoBaseDownload with large chunksize for better performance
+    request = auth.service.files().get_media(fileId=file1['id'])
 
-        chunksize = min(max(fileSize // 1048576 // 20 *
-                            1048576, 1048576), 100 * 1048576)
+    chunksize = min(max(fileSize // 1048576 // 20 *
+                        1048576, 1048576), 100 * 1048576)
 
-        media_request = http.MediaIoBaseDownload(
-            f, request, chunksize=chunksize)
+    media_request = http.MediaIoBaseDownload(
+        f, request, chunksize=chunksize)
 
+    if not args.quiet:
+        bar = ProgressBar(maxval=fileSize)
+        bar.start()
+
+    while True:
+        try:
+            download_progress, done = media_request.next_chunk()
+        except errors.HttpError as error:
+            if args.verbose:
+                sys.stderr.write('An error occurred: %s\n' % error)
+            return
         if not args.quiet:
-            bar = ProgressBar(maxval=fileSize)
-            bar.start()
+            if download_progress:
+                bar.update(int(download_progress.progress() * fileSize))
+        if done:
+            break
 
-        while True:
-            try:
-                download_progress, done = media_request.next_chunk()
-            except errors.HttpError as error:
-                if args.verbose:
-                    sys.stderr.write('An error occurred: %s\n' % error)
-                return
-            if not args.quiet:
-                if download_progress:
-                    bar.update(int(download_progress.progress() * fileSize))
-            if done:
-                break
+    if fname != '-':
+        f.close()
+    else:
+        sys.stdout.flush()
 
-        if fname != '-':
-            f.close()
-        else:
-            sys.stdout.flush()
+    if not args.quiet:
+        bar.finish()
 
-        if not args.quiet:
-            bar.finish()
-
-        sz = fileSize
-        elapsed = time.time() - start
+    sz = fileSize
+    elapsed = time.time() - start
 
     if not args.quiet:
         sys.stderr.write("Downloaded %s in %.1f seconds at %s\n" %

@@ -2,12 +2,19 @@ language: C
 
 matrix:
   include:
+    # Linux with sudo is hosted on Google Clouds
     - os: linux
       dist: trusty
+      sudo: required
+    # Linux with sudo is hosted on AWS
+    - os: linux
+      dist: trusty
+    # OSX is very slow
     - os: osx
 
 script:
   - python --version
+  - ifconfig
   - pip install -r requirements.txt
   - echo "$CRED" > mycred.txt
   - bin/gd-ls

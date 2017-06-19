@@ -7,6 +7,7 @@ matrix:
     - os: osx
 
 script:
+  - python --version
   - pip install -r requirements.txt
   - echo "$CRED" > mycred.txt
   - bin/gd-ls

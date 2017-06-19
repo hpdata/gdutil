@@ -22,7 +22,8 @@ def parse_args(description):
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('-o', '--outfile',
-                        help='Output file name. If missing or is -, use stdout.',
+                        help='Output file name. If missing or is -, use stdout ' +
+                        '(not recommended for large files).',
                         default="")
 
     parser.add_argument('-sz', '--size',

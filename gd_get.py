@@ -31,11 +31,15 @@ def parse_args(description):
                         action='store_true')
 
     parser.add_argument('-o', '--outfile',
-                        help='Output file name. Use -o - to output to stdout.',
+                        help='Output file name. Use -o - for writing to stdout ' +
+                        '(not recommended for large files).',
                         default="")
 
     parser.add_argument('-O', '--remote',
-                        help='Use remote filename as output file name.',
+                        help='Use the remote filename as output file name. ' +
+                        'If both -o and -O are specified, then -o takes precedence. ' +
+                        'If neither is specified, then write to stdout ' +
+                        '(not recommended for large files).',
                         action='store_true',
                         default=False)
 

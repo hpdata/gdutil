@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
 Download a public file from Google Drive.
@@ -53,8 +53,8 @@ def download_file(file_id, outfile, filesize, quiet=False):
 
     response = session.get(URL, params={'id': file_id}, stream=True)
 
-    if len(response.cookies.items()) <= 1:
-        sys.stderr.write("Invalid file ID\n")
+    if 'GAPS' in response.cookies.keys():
+        sys.stderr.write("Error: Not a public file\n")
         sys.exit(-1)
 
     token = get_confirm_token(response)
@@ -70,6 +70,7 @@ def get_confirm_token(response):
     "Obtain confirmation token from response"
 
     for key, value in response.cookies.items():
+        sys.stderr.write("key is " + key + " and value is " + value + "\n")
         if key.startswith('download_warning'):
             return value
 

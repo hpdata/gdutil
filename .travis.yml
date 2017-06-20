@@ -1,25 +1,47 @@
-language: C
-
 matrix:
   include:
     # Linux with sudo is hosted on Google Clouds
     - os: linux
+      python: "2.7"
       dist: trusty
       sudo: required
+      env: PYTHON=python PIP=pip GOOGLE=1
+    - os: linux
+      python: "3.6"
+      dist: trusty
+      sudo: required
+      env: PYTHON=python3 PIP=pip3 GOOGLE=1
     # Linux with sudo is hosted on AWS
     - os: linux
+      python: "2.7"
       dist: trusty
+      env: PYTHON=python PIP=pip AWS=1
+    # Linux with sudo is hosted on Google Clouds
+    # Linux with sudo is hosted on AWS
+    - os: linux
+      language: python
+      python: "3.6"
+      dist: trusty
+      env: PYTHON=python3 PIP=pip3 AWS=1
     # OSX is very slow
     - os: osx
+      language: python
+      env: PYTHON=python PIP=pip
+    - os: osx
+      language: C
+      env: PYTHON=python3 PIP=pip3
+      before_install:
+        - brew install python3
 
 script:
-  - python --version
+  - $PYTHON --version
   - ifconfig
-  - pip install -r requirements.txt
+  - $PIP install -r requirements.txt
   - echo "$CRED" > mycred.txt
   - bin/gd-ls
-  - bin/gd-get-pub "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
+  - $PYTHON gd_get_pub.py "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
   - rm -rf /tmp/test.tgz /tmp/MATLAB_R*
-  - bin/gd-get -i "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
+  - $PYTHON gd_get.py -i "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
   - rm -rf /tmp/test.tgz /tmp/MATLAB_R*
-  - '[[ "$TRAVIS_OS_NAME" != "linux" ]] || bin/gd-get -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1'
+  - '[[ "$TRAVIS_OS_NAME" != "linux" && "$PYTHON" != "python3" ]] ||
+    $PYTHON gd_get.py -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1'

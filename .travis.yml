@@ -38,7 +38,7 @@ script:
   - ifconfig
   - $PIP install -r requirements.txt
   - echo "$CRED" > mycred.txt
-  - $PYTHON gd_ls.py
+  - $PYTHON gd_list.py
   - $PYTHON gd_get_pub.py "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
   - rm -rf /tmp/test.tgz /tmp/MATLAB_R*
   - $PYTHON gd_get.py -i "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1

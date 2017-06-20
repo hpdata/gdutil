@@ -25,7 +25,7 @@ matrix:
       env: PYTHON=python3 PIP=pip3 AWS=1
     # OSX is very slow
     - os: osx
-      language: python
+      language: C
       env: PYTHON=python PIP=pip
     - os: osx
       language: C
@@ -39,9 +39,16 @@ script:
   - $PIP install -r requirements.txt
   - echo "$CRED" > mycred.txt
   - $PYTHON gd_list.py
-  - $PYTHON gd_get_pub.py "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
-  - rm -rf /tmp/test.tgz /tmp/MATLAB_R*
-  - $PYTHON gd_get.py -i "$ACCESSCODE" -o /tmp/test.tgz && tar zxf /tmp/test.tgz -C /tmp --strip-components 1
-  - rm -rf /tmp/test.tgz /tmp/MATLAB_R*
+  - 'for chunk in 1 2 4 8 16 32 64 128 256 512; do
+          echo "Testing gd-get with chunksize $chunk MB"
+          $PYTHON gd_get.py -i "$ACCESSCODE" -k $chunk -o /tmp/test.tgz
+          rm -rf /tmp/test.tgz
+     done'
+  - 'for chunk in 1 2 4 8 16 32 64 128 256 512; do
+          echo "Testing gd-get-pub with chunksize $chunk MB"
+          $PYTHON gd_get_pub.py -i "$ACCESSCODE" -k $chunk -o /tmp/test.tgz
+          rm -rf /tmp/test.tgz
+     done'
   - '[[ "$TRAVIS_OS_NAME" != "linux" && "$PYTHON" != "python3" ]] ||
-    $PYTHON gd_get.py -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1'
+    $PYTHON gd_get.py -i "$ACCESSCODE" | tar zxf - -C /tmp --strip-components 1 &&
+    rm -rf /tmp/test.tgz /tmp/MATLAB_R*'

@@ -59,6 +59,11 @@ def parse_args(description):
                         ' credential. The default is ~/.config/gdutil/.',
                         default="")
 
+    parser.add_argument('-k', '--chunk',
+                        help='Chunk size in megabytes. Default is to auto-choose.',
+                        type=int,
+                        default=0)
+
     parser.add_argument('-q', '--quiet',
                         help='Suppress information and error messages.',
                         default=False,
@@ -91,7 +96,7 @@ def md5chksum(fname):
     return hash_md5.hexdigest()
 
 
-def sizeof_fmt(num, suffix='Bps'):
+def sizeof_fmt(num, suffix='B/s'):
     " Format size in human-readable format "
 
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
@@ -165,8 +170,12 @@ def download_file(file1, auth, args):
     # Use MediaIoBaseDownload with large chunksize for better performance
     request = auth.service.files().get_media(fileId=file1['id'])
 
-    chunksize = min(max(fileSize // 1048576 // 20 *
-                        1048576, 1048576), 100 * 1048576)
+    mega = 1048576
+    if args.chunk <= 0:
+        chunksize = min(max(fileSize // mega // 20 * mega, mega),
+                        100 * mega)
+    else:
+        chunksize = args.chunk * mega
 
     media_request = http.MediaIoBaseDownload(
         f, request, chunksize=chunksize)
@@ -200,9 +209,14 @@ def download_file(file1, auth, args):
     elapsed = time.time() - start
 
     if not args.quiet:
-        sys.stderr.write("Downloaded %s in %.1f seconds at %s\n" %
+        import requests
+        import socket
+        ip = requests.get('http://ip.42.pl/raw').text
+        hostaddr = socket.gethostbyaddr(ip)[0]
+
+        sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
                          (sizeof_fmt(sz, 'B'), elapsed,
-                          sizeof_fmt(sz / elapsed)))
+                          sizeof_fmt(sz / elapsed), hostaddr))
 
 
 if __name__ == "__main__":

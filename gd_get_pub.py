@@ -26,8 +26,13 @@ def parse_args(description):
                         '(not recommended for large files).',
                         default="")
 
-    parser.add_argument('-sz', '--size',
+    parser.add_argument('-s', '--size',
                         help='Size of the file.',
+                        type=int,
+                        default=0)
+
+    parser.add_argument('-k', '--chunk',
+                        help='Chunk size for streaming. Default is to auto choose.',
                         type=int,
                         default=0)
 
@@ -50,7 +55,7 @@ def parse_args(description):
     return args
 
 
-def download_file(file_id, outfile, filesize, quiet=False):
+def download_file(file_id, outfile, filesize, chunk=0, quiet=False):
     "Download file with the given file ID from Google Drive"
 
     URL = "https://drive.google.com/uc?export=download"
@@ -69,7 +74,7 @@ def download_file(file_id, outfile, filesize, quiet=False):
         params = {'id': file_id, 'confirm': token}
         response = session.get(URL, params=params, stream=True)
 
-    return write_response_content(response, outfile, filesize, quiet)
+    return write_response_content(response, outfile, filesize, chunk, quiet)
 
 
 def get_confirm_token(response):
@@ -82,12 +87,17 @@ def get_confirm_token(response):
     return None
 
 
-def write_response_content(response, outfile, filesize, quiet):
+def write_response_content(response, outfile, filesize, chunk, quiet):
     """ Write the content into outfile of stdout """
 
     import time
 
-    CHUNK_SIZE = 1048576
+    mega = 1048576
+    if not chunk:
+        CHUNK_SIZE = mega
+    else:
+        CHUNK_SIZE = chunk * mega
+
     bar = None
     count = 0
 
@@ -142,7 +152,7 @@ def write_response_content(response, outfile, filesize, quiet):
     return count, time.time() - start
 
 
-def sizeof_fmt(num, suffix='Bps'):
+def sizeof_fmt(num, suffix='B/s'):
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
             return "%3.1f %s%s" % (num, unit, suffix)
@@ -152,11 +162,13 @@ def sizeof_fmt(num, suffix='Bps'):
 
 if __name__ == "__main__":
     import os
+    import socket
+
     # Process command-line arguments
     args = parse_args(description=__doc__)
 
     sz, elapsed = download_file(
-        args.file_id, args.outfile, args.size, args.quiet)
+        args.file_id, args.outfile, args.size, args.chunk, args.quiet)
 
     if not args.quiet and args.size and sz != args.size:
         try:
@@ -172,5 +184,8 @@ if __name__ == "__main__":
                              " bytes, but " + str(args.size) +
                              " was expected.")
 
-    sys.stderr.write("\nAverage download speed: " +
-                     sizeof_fmt(sz / elapsed) + "\n")
+    ip = requests.get('http://ip.42.pl/raw').text
+    hostaddr = socket.gethostbyaddr(ip)[0]
+    sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
+                     (sizeof_fmt(sz, 'B'), elapsed,
+                      sizeof_fmt(sz / elapsed), hostaddr))

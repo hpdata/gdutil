@@ -217,7 +217,8 @@ def download_file(file1, auth, args):
         except errors.HttpError as error:
             sys.stderr.write('An error occurred: %s\n' % error.message)
 
-            if error.message.find('Rate Limit Exceeded') < 0:
+            if error.message.find('Rate Limit Exceeded') < 0 and \
+                    error.message.find('Too Many Requests') < 0:
                 # Error cannot be recoverred
                 return
             elif sleep_interval == 0:

@@ -48,4 +48,4 @@ script:
      $PYTHON gd_get_pub.py -i "$ACCESSCODE" -k $chunk -o /tmp/test.tgz;
      rm -rf /tmp/test.tgz'
   - '[[ "$TRAVIS_OS_NAME" != "linux" && "$PYTHON" != "python3" ]] ||
-    $PYTHON gd_get.py -i "$ACCESSCODE" | echo > /dev/null
+    $PYTHON gd_get.py -i "$ACCESSCODE" | echo > /dev/null'

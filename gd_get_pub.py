@@ -38,7 +38,7 @@ def parse_args(description):
                         default=0)
 
     parser.add_argument('-k', '--chunk',
-                        help='Chunk size in megabytes. Default is 1 MB.',
+                        help='Chunk size in megabytes. Default is 16 MB.',
                         type=int,
                         default=0)
 
@@ -108,7 +108,7 @@ def write_response_content(response, outfile, filesize, chunk, quiet):
 
     mega = 1048576
     if not chunk:
-        CHUNK_SIZE = mega
+        CHUNK_SIZE = 16 * mega
     else:
         CHUNK_SIZE = chunk * mega
 

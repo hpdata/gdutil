@@ -129,11 +129,11 @@ def determine_chunksize(chunk):
 
         if hostaddr.endswith('googleusercontent.com') or \
            hostaddr.endswith('amazonaws.com'):
-            #  Use 128 MB for Google and Amazon cloud platforms
-            return 128 * mega, hostaddr
+            #  Use 256 MB for Google and Amazon cloud platforms
+            return 256 * mega, hostaddr
         else:
-            #  Use 32 MB for other platforms
-            return 32 * mega, hostaddr
+            #  Use 16 MB for other platforms
+            return 16 * mega, hostaddr
 
 
 def download_file(file1, auth, args):

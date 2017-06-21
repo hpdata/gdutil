@@ -22,9 +22,15 @@ def parse_args(description):
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('-o', '--outfile',
-                        help='Output file name. If missing or is -, use stdout ' +
+                        help='Output file name. Use -o - for writing to stdout ' +
                         '(not recommended for large files).',
                         default="")
+
+    parser.add_argument('-O', '--remote',
+                        help='Use the remote filename as the output file name. ' +
+                        'This is the default unless -o is specified.',
+                        action='store_true',
+                        default=True)
 
     parser.add_argument('-s', '--size',
                         help='Size of the file.',
@@ -32,7 +38,7 @@ def parse_args(description):
                         default=0)
 
     parser.add_argument('-k', '--chunk',
-                        help='Chunk size for streaming. Default is to auto choose.',
+                        help='Chunk size in megabytes. Default is 1 MB.',
                         type=int,
                         default=0)
 
@@ -51,6 +57,8 @@ def parse_args(description):
                         default="")
 
     args = parser.parse_args()
+    if args.outfile:
+        args.remote = False
 
     return args
 
@@ -73,6 +81,12 @@ def download_file(file_id, outfile, filesize, chunk=0, quiet=False):
     if token:
         params = {'id': file_id, 'confirm': token}
         response = session.get(URL, params=params, stream=True)
+
+    if args.remote:
+        disposition = response.headers['Content-Disposition']
+        outfile = disposition[21:disposition.find('"', 21)]
+        if not args.quiet:
+            sys.stderr.write('Downlading file %s ...\n' % outfile)
 
     return write_response_content(response, outfile, filesize, chunk, quiet)
 
@@ -185,7 +199,10 @@ if __name__ == "__main__":
                              " was expected.")
 
     ip = requests.get('http://ip.42.pl/raw').text
-    hostaddr = socket.gethostbyaddr(ip)[0]
-    sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
+    try:
+        hostaddr = socket.gethostbyaddr(ip)[0]
+    except:
+        hostaddr = ip
+    sys.stderr.write("\nDownloaded %s in %.1f seconds at %s from %s\n" %
                      (sizeof_fmt(sz, 'B'), elapsed,
                       sizeof_fmt(sz / elapsed), hostaddr))

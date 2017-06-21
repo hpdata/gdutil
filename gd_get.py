@@ -26,7 +26,7 @@ def parse_args(description):
                         default="root")
 
     parser.add_argument('-r', '--recursive',
-                        help='Download files recursively. It implies -O.',
+                        help='Download files recursively.',
                         default=False,
                         action='store_true')
 
@@ -36,12 +36,10 @@ def parse_args(description):
                         default="")
 
     parser.add_argument('-O', '--remote',
-                        help='Use the remote filename as output file name. ' +
-                        'If both -o and -O are specified, then -o takes precedence. ' +
-                        'If neither is specified, then write to stdout ' +
-                        '(not recommended for large files).',
+                        help='Use the remote filename as the output file name. ' +
+                        'This is the default unless -o is specified.',
                         action='store_true',
-                        default=False)
+                        default=True)
 
     parser.add_argument('-d', '--outdir',
                         help='Local parent directory path. ' +
@@ -64,6 +62,11 @@ def parse_args(description):
                         type=int,
                         default=0)
 
+    parser.add_argument('-n', '--no-chksum',
+                        help='Do not check the chksum of the file. Default is to check.',
+                        action='store_true',
+                        default=False)
+
     parser.add_argument('-q', '--quiet',
                         help='Suppress information and error messages.',
                         default=False,
@@ -82,12 +85,14 @@ def parse_args(description):
 
     if args.outdir and args.outdir[-1] != '/':
         args.outdir = args.outdir + '/'
+    if args.outfile:
+        args.remote = False
 
     return args
 
 
 def md5chksum(fname):
-    " Computes md5chksum of a local file "
+    "Computes md5chksum of a local file"
 
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
@@ -106,8 +111,33 @@ def sizeof_fmt(num, suffix='B/s'):
     return "%.1f%s%s" % (num, 'Y', suffix)
 
 
+def determine_chunksize(chunk):
+    " Determine proper chunk size "
+    import socket
+    mega = 1048576
+
+    if chunk > 0:
+        return chunk * mega, socket.gethostname()
+    else:
+        import requests
+
+        ip = requests.get('http://ip.42.pl/raw').text
+        try:
+            hostaddr = socket.gethostbyaddr(ip)[0]
+        except:
+            hostaddr = ip
+
+        if hostaddr.endswith('googleusercontent.com') or \
+           hostaddr.endswith('amazonaws.com'):
+            #  Use 128 MB for Google and Amazon cloud platforms
+            return 128 * mega, hostaddr
+        else:
+            #  Use 32 MB for other platforms
+            return 32 * mega, hostaddr
+
+
 def download_file(file1, auth, args):
-    "Download a given file"
+    " Download a given file "
 
     import sys
     import os
@@ -134,8 +164,8 @@ def download_file(file1, auth, args):
         return
 
     if fname != '-' and os.path.isfile(fname):
-        # Download file only if size is different or checksum is different
-        # Compute chksum
+        # Download file only if size is different or
+        # the checksum is different Compute chksum
         if os.path.getsize(fname) == fileSize and \
                 md5chksum(fname) == file1['fileobj']['md5Checksum']:
             # Download the file
@@ -151,11 +181,10 @@ def download_file(file1, auth, args):
 
     # Download the file
     if not args.quiet:
-        sys.stderr.write("Downloading file " + file1['name'] + "...\n")
+        sys.stderr.write("Downloading file " + file1['name'] + " ...\n")
         sys.stderr.flush()
 
     # Check whether file is public
-    start = time.time()
     if fname != '-':
         f = open(fname, "wb")
     elif sys.version_info[0] > 2:
@@ -170,27 +199,62 @@ def download_file(file1, auth, args):
     # Use MediaIoBaseDownload with large chunksize for better performance
     request = auth.service.files().get_media(fileId=file1['id'])
 
-    mega = 1048576
-    if args.chunk <= 0:
-        chunksize = min(max(fileSize // mega // 20 * mega, mega),
-                        100 * mega)
-    else:
-        chunksize = args.chunk * mega
+    chunksize, hostaddr = determine_chunksize(args.chunk)
 
-    media_request = http.MediaIoBaseDownload(
-        f, request, chunksize=chunksize)
+    start = time.time()
+    media_request = http.MediaIoBaseDownload(f, request, chunksize=chunksize)
 
     if not args.quiet:
         bar = ProgressBar(maxval=fileSize)
         bar.start()
 
+    sleep_interval = 0
     while True:
         try:
             download_progress, done = media_request.next_chunk()
+            if sleep_interval > 0:
+                time.sleep(sleep_interval)
         except errors.HttpError as error:
-            if args.verbose:
-                sys.stderr.write('An error occurred: %s\n' % error)
-            return
+            sys.stderr.write('An error occurred: %s\n' % error.message)
+
+            if error.message.find('Rate Limit Exceeded') < 0:
+                # Error cannot be recoverred
+                return
+            elif sleep_interval == 0:
+                # Try to adjust chunksize based on estinated bandwidth
+                # Chunksize should be able to store data for one-second
+                bandwidth = (download_progress.progress() *
+                             fileSize) / (time.time() - start) / 1048576
+
+                newchunksize = chunksize
+                while newchunksize < bandwidth and newchunksize < 256:
+                    newchunksize *= 2
+
+                # Chunksize should be able to store data for one second
+                if newchunksize > chunksize:
+                    chunksize = newchunksize
+
+                    # Restart downloading with new chunksize
+                    start = time.time()
+                    media_request = http.MediaIoBaseDownload(
+                        f, request, chunksize=chunksize)
+
+                    if not args.quiet:
+                        bar = ProgressBar(maxval=fileSize)
+                        bar.start()
+
+                    continue
+                else:
+                    # If chunksize is large enough, use exponential backoff
+                    pass
+
+            # Use exponential backoff
+            if sleep_interval == 0:
+                sleep_interval = 0.1
+            else:
+                sleep_interval *= 2
+            time.sleep(sleep_interval)
+
         if not args.quiet:
             if download_progress:
                 bar.update(int(download_progress.progress() * fileSize))
@@ -205,18 +269,20 @@ def download_file(file1, auth, args):
     if not args.quiet:
         bar.finish()
 
-    sz = fileSize
     elapsed = time.time() - start
+    sz = fileSize
+
+    if fname != '-' and (os.path.getsize(fname) != fileSize or
+                         md5chksum(fname) != file1['fileobj']['md5Checksum']):
+        sys.stderr.write("Checksum of the file does not match. The file might " +
+                         "be corrupted or changed during transmission.")
 
     if not args.quiet:
-        import requests
-        import socket
-        ip = requests.get('http://ip.42.pl/raw').text
-        hostaddr = socket.gethostbyaddr(ip)[0]
-
         sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
                          (sizeof_fmt(sz, 'B'), elapsed,
                           sizeof_fmt(sz / elapsed), hostaddr))
+
+    return sz, elapsed
 
 
 if __name__ == "__main__":

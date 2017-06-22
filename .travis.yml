@@ -41,12 +41,12 @@ script:
   - $PYTHON gd_list.py
   - 'for chunk in 16 256; do
           echo "Testing gd-get with chunksize $chunk MB";
-          $PYTHON gd_get.py -i "$ACCESSCODE" -k $chunk -o /tmp/test.tgz;
+          $PYTHON gd_get.py -i "$ACCESSCODE" --chunk $chunk -o /tmp/test.tgz;
           rm -rf /tmp/test.tgz;
      done'
   - 'for chunk in 1 16; do
           echo "Testing gd-get-pub with chunksize $chunk MB";
-          $PYTHON gd_get_pub.py -i "$ACCESSCODE" -k $chunk -o /tmp/test.tgz;
+          $PYTHON gd_get_pub.py -i "$ACCESSCODE" --chunk $chunk -o /tmp/test.tgz;
           rm -rf /tmp/test.tgz;
      done'
   - '[[ "$TRAVIS_OS_NAME" != "linux" && "$PYTHON" != "python3" ]] ||

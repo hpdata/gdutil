@@ -3,8 +3,9 @@
 """
 Download a public file from Google Drive.
 
-This module uses the requests module to download a public file identified
+This module uses the requests package to download a public file identified
 by its file ID. It does not require PyDrive and Google authentication.
+It does not check the correctness of the output either.
 """
 
 from __future__ import print_function
@@ -140,20 +141,23 @@ def write_response_content(response, outfile, filesize, chunk, quiet):
             import msvcrt
             msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-    for chunk in response.iter_content(CHUNK_SIZE):
-        if chunk:  # filter out keep-alive new chunks
-            f.write(chunk)
-            count += len(chunk)
+    try:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:  # filter out keep-alive new chunks
+                f.write(chunk)
+                count += len(chunk)
 
-            if bar is not None:
-                try:
-                    bar.update(count)
-                except BaseException:
-                    # Size is larger than specified. Use UnknownLength
-                    bar.finish()
-                    bar = ProgressBar(max_value=UnknownLength)
-                    bar.start()
-                    bar.update(count)
+                if bar is not None:
+                    try:
+                        bar.update(count)
+                    except BaseException:
+                        # Size is larger than specified. Use UnknownLength
+                        bar.finish()
+                        bar = ProgressBar(max_value=UnknownLength)
+                        bar.start()
+                        bar.update(count)
+    except BaseException as e:
+        sys.stderr.write(e)
 
     if outfile and outfile != '-':
         f.close()

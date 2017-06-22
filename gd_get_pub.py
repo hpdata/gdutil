@@ -38,11 +38,6 @@ def parse_args(description):
                         type=int,
                         default=0)
 
-    parser.add_argument('-k', '--chunk',
-                        help='Chunk size in megabytes. Default is 16 MB.',
-                        type=int,
-                        default=0)
-
     parser.add_argument('-q', '--quiet',
                         help='Suppress output.',
                         default=False,
@@ -64,7 +59,7 @@ def parse_args(description):
     return args
 
 
-def download_file(file_id, outfile, filesize, chunk=0, quiet=False):
+def download_file(file_id, outfile, filesize, quiet=False):
     "Download file with the given file ID from Google Drive"
 
     URL = "https://drive.google.com/uc?export=download"
@@ -89,7 +84,7 @@ def download_file(file_id, outfile, filesize, chunk=0, quiet=False):
         if not args.quiet:
             sys.stderr.write('Downlading file %s ...\n' % outfile)
 
-    return write_response_content(response, outfile, filesize, chunk, quiet)
+    return write_response_content(response, outfile, filesize, quiet)
 
 
 def get_confirm_token(response):
@@ -102,16 +97,12 @@ def get_confirm_token(response):
     return None
 
 
-def write_response_content(response, outfile, filesize, chunk, quiet):
+def write_response_content(response, outfile, filesize, quiet):
     """ Write the content into outfile of stdout """
 
     import time
 
-    mega = 1048576
-    if not chunk:
-        CHUNK_SIZE = 16 * mega
-    else:
-        CHUNK_SIZE = chunk * mega
+    CHUNK_SIZE = 8 * 1048576
 
     bar = None
     count = 0
@@ -186,7 +177,7 @@ if __name__ == "__main__":
     args = parse_args(description=__doc__)
 
     sz, elapsed = download_file(
-        args.file_id, args.outfile, args.size, args.chunk, args.quiet)
+        args.file_id, args.outfile, args.size, args.quiet)
 
     if not args.quiet and args.size and sz != args.size:
         try:

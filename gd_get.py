@@ -10,7 +10,7 @@ import sys
 import hashlib
 from gd_auth import authenticate
 from gd_list import list_files
-from progressbar import ProgressBar
+import httplib2
 
 
 def parse_args(description):
@@ -21,7 +21,7 @@ def parse_args(description):
     # Process command-line arguments
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument('-p', '--parent',
+    parser.add_argument('-sz', '--parent',
                         help='ID of parent folder in Google Drive',
                         default="root")
 
@@ -52,15 +52,16 @@ def parse_args(description):
                         action="store_true",
                         default=False)
 
+    parser.add_argument('-R', '--resume',
+                        help='Resume downloading the file to the specified size. ' +
+                        'The output file name cannot be ''-''.',
+                        action='store_true',
+                        default=False)
+
     parser.add_argument('-c', '--config',
                         help='Configuration directory containing the ' +
                         ' credential. The default is ~/.config/gdutil/.',
                         default="")
-
-    parser.add_argument('-k', '--chunk',
-                        help='Chunk size in megabytes. Default is to auto-choose.',
-                        type=int,
-                        default=0)
 
     parser.add_argument('-n', '--no-chksum',
                         help='Do not check the chksum of the file. Default is to check.',
@@ -87,6 +88,9 @@ def parse_args(description):
         args.outdir = args.outdir + '/'
     if args.outfile:
         args.remote = False
+    if args.resume and args.outfile == '-':
+        sys.stderr('Resume downloading is not supported for stdout')
+        sys.exit(-1)
 
     return args
 
@@ -101,6 +105,27 @@ def md5chksum(fname):
     return hash_md5.hexdigest()
 
 
+def check_lastchunk(fname, oldFileSize, service, url, blocksize=65535):
+    """Check the last block of the file and return true if they are
+     the same with that on Google Drive"""
+
+    if oldFileSize < blocksize:
+        blocksize = oldFileSize
+
+    headers = {"Range": 'bytes=%s-%s' %
+               (oldFileSize - blocksize, oldFileSize - 1)}
+    resp, content = service._http.request(url, headers=headers)
+
+    if resp.status == 206:
+        with open(fname, 'rb') as f:
+            f.seek(oldFileSize - blocksize)
+            local = f.read(blocksize)
+
+            return content == local
+
+    return False
+
+
 def sizeof_fmt(num, suffix='B/s'):
     " Format size in human-readable format "
 
@@ -111,29 +136,80 @@ def sizeof_fmt(num, suffix='B/s'):
     return "%.1f%s%s" % (num, 'Y', suffix)
 
 
-def determine_chunksize(chunk):
-    " Determine proper chunk size "
+def get_hostaddr():
+    "Get host address for printing and determining speed"
+    import requests
     import socket
+
+    ip = requests.get('http://ip.42.pl/raw').text
+    try:
+        hostaddr = socket.gethostbyaddr(ip)[0]
+    except:
+        hostaddr = ip
+
+    return hostaddr
+
+
+def get_chunksize_perthread(hostaddr):
+    " Determine the proper chunk size. "
+
     mega = 1048576
 
-    if chunk > 0:
-        return chunk * mega, socket.gethostname()
+    if hostaddr.endswith('googleusercontent.com') or \
+       hostaddr.endswith('amazonaws.com'):
+        # Use 64 MB for Google and Amazon cloud platforms
+        chunk = 64
     else:
-        import requests
+        #  Use 8 MB total for other platforms
+        chunk = 8
 
-        ip = requests.get('http://ip.42.pl/raw').text
-        try:
-            hostaddr = socket.gethostbyaddr(ip)[0]
-        except:
-            hostaddr = ip
+    return chunk * mega
 
-        if hostaddr.endswith('googleusercontent.com') or \
-           hostaddr.endswith('amazonaws.com'):
-            #  Use 256 MB for Google and Amazon cloud platforms
-            return 256 * mega, hostaddr
+
+def get_next_block(http, dld_url, headers, fileSize, chunksize, backoff):
+    """
+    Download the next block and update context.
+    """
+
+    import time
+
+    for i in range(10):
+        resp, content = http.request(dld_url, headers=headers)
+
+        if backoff > 0:
+            time.sleep(backoff)
+
+        if resp.status == 206:
+            # Obtained partial result successfully
+            return 0, content, backoff
+        elif backoff >= 2 or \
+                resp.status != 429 and resp.status != 403 or \
+                resp.status == 403 and \
+                resp.reason.find('Rate Limit Exceeded') < 0 and \
+                resp.reason.find('Too Many Requests') < 0:
+            # Could not recover from error
+            # Example reasons: range not satisfyable (status == 416)
+            # status 429 corresponds to "Too Many Requests"
+            # status 403 corresponds to some permission error
+
+            sys.stderr.write("Error cannot be recoverred")
+            break
         else:
-            #  Use 16 MB for other platforms
-            return 16 * mega, hostaddr
+            sys.stderr.write("Got error " + resp.reason +
+                             ". Trying to recover with exponential backoff.\n")
+
+            # Use exponential backoff
+            if backoff == 0:
+                backoff = 0.1
+                time.sleep(backoff)
+            else:
+                time.sleep(backoff)
+                backoff *= 2
+
+            sys.stderr.write(
+                "Increased backoff time to %.1f seconds\n" % backoff)
+
+    return -1, '', backoff
 
 
 def download_file(file1, auth, args):
@@ -142,8 +218,7 @@ def download_file(file1, auth, args):
     import sys
     import os
     import time
-    from apiclient import http
-    from apiclient import errors
+    from progress import ResumableBar
 
     dirname, basename = os.path.split(file1['name'])
 
@@ -156,7 +231,8 @@ def download_file(file1, auth, args):
     else:
         fname = '-'
 
-    # If give file is a folder, create the directory locally
+    # If the given file is a folder, create the directory locally
+    oldFileSize = 0
     fileSize = file1['fileSize']
     if fileSize < 0:
         if args.preserve and not os.path.isdir(fname):
@@ -164,9 +240,10 @@ def download_file(file1, auth, args):
         return
 
     if fname != '-' and os.path.isfile(fname):
-        # Download file only if size is different or
+        # Download the file only if size is different or
         # the checksum is different Compute chksum
-        if os.path.getsize(fname) == fileSize and \
+        oldFileSize = os.path.getsize(fname)
+        if oldFileSize == fileSize and \
                 md5chksum(fname) == file1['fileobj']['md5Checksum']:
             # Download the file
             if not args.quiet:
@@ -174,19 +251,39 @@ def download_file(file1, auth, args):
                 sys.stderr.flush()
 
             return
-    elif fname != '-' and args.preserve and \
-            dirname and not os.path.isdir(dirname):
-        # Create directory if not exist
-        os.makedirs(dirname)
+    else:
+        args.resume = False
+        if fname != '-' and args.preserve and \
+                dirname and not os.path.isdir(dirname):
+            # Create directory if not exist
+            os.makedirs(dirname)
 
-    # Download the file
+    dld_url = file1['fileobj']['downloadUrl']
+    hostaddr = get_hostaddr()
+    chunksize = get_chunksize_perthread(hostaddr)
+
     if not args.quiet:
-        sys.stderr.write("Downloading file " + file1['name'] + " ...\n")
+        if args.resume:
+            sys.stderr.write("Resume downloading file " +
+                             file1['name'] + " ...\n")
+        else:
+            sys.stderr.write("Downloading file " +
+                             file1['name'] + "  ...\n")
         sys.stderr.flush()
 
-    # Check whether file is public
+    # Open the file for appending/writing
+    pstart = 0
     if fname != '-':
-        f = open(fname, "wb")
+        if args.resume and oldFileSize > 0 and \
+                check_lastchunk(fname, oldFileSize,
+                                auth.service, dld_url):
+            # Open file for appending
+            f = open(fname, "ab")
+            pstart = oldFileSize
+            f.seek(pstart, 0)
+        else:
+            # Open file for writing
+            f = open(fname, "wb")
     elif sys.version_info[0] > 2:
         f = sys.stdout.buffer
     else:
@@ -196,92 +293,74 @@ def download_file(file1, auth, args):
             import msvcrt
             msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-    # Use MediaIoBaseDownload with large chunksize for better performance
-    request = auth.service.files().get_media(fileId=file1['id'])
-
-    chunksize, hostaddr = determine_chunksize(args.chunk)
-
-    start = time.time()
-    media_request = http.MediaIoBaseDownload(f, request, chunksize=chunksize)
-
     if not args.quiet:
-        bar = ProgressBar(maxval=fileSize)
+        bar = ResumableBar(maxval=fileSize, initial_value=pstart)
         bar.start()
 
-    sleep_interval = 0
+    # Download the file using httplib2 and URL
+    interrupted = False
+
+    # Start up
+    start = time.time()
+    sz = pstart   # Counter for filesize
+    backoff = 0
+
     while True:
         try:
-            download_progress, done = media_request.next_chunk()
-            if sleep_interval > 0:
-                time.sleep(sleep_interval)
-        except errors.HttpError as error:
-            sys.stderr.write('An error occurred: %s\n' % error.message)
-
-            if error.message.find('Rate Limit Exceeded') < 0 and \
-                    error.message.find('Too Many Requests') < 0:
-                # Error cannot be recoverred
-                return
-            elif sleep_interval == 0:
-                # Try to adjust chunksize based on estinated bandwidth
-                # Chunksize should be able to store data for one-second
-                bandwidth = (download_progress.progress() *
-                             fileSize) / (time.time() - start) / 1048576
-
-                newchunksize = chunksize
-                while newchunksize < bandwidth and newchunksize < 256:
-                    newchunksize *= 2
-
-                # Chunksize should be able to store data for one second
-                if newchunksize > chunksize:
-                    chunksize = newchunksize
-
-                    # Restart downloading with new chunksize
-                    start = time.time()
-                    media_request = http.MediaIoBaseDownload(
-                        f, request, chunksize=chunksize)
-
-                    if not args.quiet:
-                        bar = ProgressBar(maxval=fileSize)
-                        bar.start()
-
-                    continue
-                else:
-                    # If chunksize is large enough, use exponential backoff
-                    pass
-
-            # Use exponential backoff
-            if sleep_interval == 0:
-                sleep_interval = 0.1
+            pnext = sz + chunksize
+            if pnext >= fileSize:
+                headers = {"Range": 'bytes=%s-%s' % (sz, '')}
+                pnext = fileSize
             else:
-                sleep_interval *= 2
-            time.sleep(sleep_interval)
+                headers = {"Range": 'bytes=%s-%s' % (sz, pnext - 1)}
 
-        if not args.quiet:
-            if download_progress:
-                bar.update(int(download_progress.progress() * fileSize))
-        if done:
+            status, content, backoff = get_next_block(
+                auth.service._http, dld_url, headers, fileSize, chunksize, backoff)
+
+            if status:
+                break
+
+            f.write(content)
+            sz = pnext
+
+            if not args.quiet:
+                bar.update(sz)
+
+            if sz == fileSize:
+                break
+
+        except httplib2.ServerNotFoundError:
+            sys.stderr.write("\nSite is Down\n")
+            break
+        except KeyboardInterrupt:
+            interrupted = True
+            sys.stderr.write(
+                "\nDownload interrupted. You can resume it using the -R option.\n")
             break
 
+    # Close the file and progress bar
     if fname != '-':
         f.close()
     else:
         sys.stdout.flush()
+    elapsed = time.time() - start
 
     if not args.quiet:
-        bar.finish()
-
-    elapsed = time.time() - start
-    sz = fileSize
-
-    if fname != '-' and (os.path.getsize(fname) != fileSize or
-                         md5chksum(fname) != file1['fileobj']['md5Checksum']):
-        sys.stderr.write("Checksum of the file does not match. The file might " +
-                         "be corrupted or changed during transmission.")
+        if sz == fileSize:
+            bar.finish()
+        else:
+            sys.stderr.write('\n')
 
     if not args.quiet:
         sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
-                         (sizeof_fmt(sz, 'B'), elapsed,
-                          sizeof_fmt(sz / elapsed), hostaddr))
+                         (sizeof_fmt(sz - pstart, 'B'), elapsed,
+                          sizeof_fmt((sz - pstart) / elapsed), hostaddr))
+
+    # Check the checksum of the file for integrity
+    if not args.no_chksum and not interrupted and fname != '-' and sz == fileSize and \
+            md5chksum(fname) != file1['fileobj']['md5Checksum']:
+        sys.stderr.write("Checksum of the file does not match. The file might be corrupted " +
+                         "during transmission or was changed on Google Drive during transfer.")
 
     return sz, elapsed
 

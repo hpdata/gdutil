@@ -16,9 +16,11 @@ def authenticate(conf_dir, cmdline=False, verbose=False):
     from pydrive.auth import GoogleAuth
     import os
     import os.path
+    from httplib2 import Http
 
-    # Authenticate Google account
+    # Authenticate Google account and intialize caching
     gauth = GoogleAuth()
+    gauth.http = Http(cache=os.path.expanduser('~') + '/.cache/gdutil')
 
     if not conf_dir:
         conf_dir = os.path.expanduser('~') + '/.config/gdutil'

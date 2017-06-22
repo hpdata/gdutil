@@ -44,6 +44,6 @@ script:
     rm -rf /tmp/test.tgz
   - echo "Testing gd-get-pub" &&
     $PYTHON gd_get_pub.py -i "$ACCESSCODE" -o /tmp/test.tgz &&
-    rm -rf /tmp/test.tgz &&
+    rm -rf /tmp/test.tgz
   - '[[ "$TRAVIS_OS_NAME" != "linux" && "$PYTHON" != "python3" ]] ||
     $PYTHON gd_get.py -i "$ACCESSCODE" | echo > /dev/null'

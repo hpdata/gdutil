@@ -108,7 +108,7 @@ def install_pydrive(verbose=False):
     tmpdir = tempfile.mkdtemp()
 
     if verbose:
-        sys.stderr.write('Downloading PyDrive ...')
+        sys.stderr.write('Downloading PyDrive...')
         sys.stderr.flush()
 
     patterns = ['/*/*/*/site-packages',

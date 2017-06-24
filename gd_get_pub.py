@@ -132,23 +132,20 @@ def write_response_content(response, outfile, filesize, quiet):
             import msvcrt
             msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-    try:
-        for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk:  # filter out keep-alive new chunks
-                f.write(chunk)
-                count += len(chunk)
+    for chunk in response.iter_content(CHUNK_SIZE):
+        if chunk:  # filter out keep-alive new chunks
+            f.write(chunk)
+            count += len(chunk)
 
-                if bar is not None:
-                    try:
-                        bar.update(count)
-                    except BaseException:
-                        # Size is larger than specified. Use UnknownLength
-                        bar.finish()
-                        bar = ProgressBar(max_value=UnknownLength)
-                        bar.start()
-                        bar.update(count)
-    except BaseException as e:
-        sys.stderr.write(e)
+            if bar is not None:
+                try:
+                    bar.update(count)
+                except BaseException:
+                    # Size is larger than specified. Use UnknownLength
+                    bar.finish()
+                    bar = ProgressBar(max_value=UnknownLength)
+                    bar.start()
+                    bar.update(count)
 
     if outfile and outfile != '-':
         f.close()

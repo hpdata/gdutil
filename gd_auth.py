@@ -109,8 +109,7 @@ def install_pydrive(verbose=False):
     tmpdir = tempfile.mkdtemp()
 
     if verbose:
-        sys.stderr.write('PyDrive is unavailable. Installing it into ' +
-                         tmpdir + ' ...')
+        sys.stderr.write('Downloading PyDrive ...')
         sys.stderr.flush()
 
     try:
@@ -142,7 +141,7 @@ def install_pydrive(verbose=False):
               'httplib2', 'uritemplate', 'pyasn1', 'pyasn1-modules',
               'rsa', 'oauth2client'])
     try:
-        pip.main(['install', '-q', '--user', '--root', tmpdir, 'pydrive'])
+        pip.main(['install', '-q', '--user', '--root', tmpdir, 'PyDrive'])
     except:
         pass
 

@@ -104,7 +104,6 @@ def install_pydrive(verbose=False):
     import site
     import glob
     import subprocess
-    import os
 
     tmpdir = tempfile.mkdtemp()
 
@@ -112,6 +111,11 @@ def install_pydrive(verbose=False):
         sys.stderr.write('Downloading PyDrive ...')
         sys.stderr.flush()
 
+    patterns = ['/*/*/*/site-packages',
+                '/*/*/.*/*/*/site-packages',
+                '/*/*/*/*/*/site-packages',
+                '/*/*/*/*/*/*/site-packages',
+                '/*/*/*/*/*/*/*/site-packages']
     try:
         import pip
     except:
@@ -131,9 +135,11 @@ def install_pydrive(verbose=False):
                          '-q', '--prefix=' + tmpdir])
 
         # Refresh path
-        sit_dir = glob.glob(tmpdir + '/*/*/site-packages')
-        site.addsitedir(sit_dir[0])
-        os.environ["PYTHONPATH"] = sit_dir[0]
+        for pattern in patterns:
+            sit_dir = glob.glob(tmpdir + pattern)
+            if sit_dir:
+                site.addsitedir(sit_dir[0])
+                break
         import pip
 
     # Install pydrive and related packages
@@ -145,9 +151,7 @@ def install_pydrive(verbose=False):
     except:
         pass
 
-    for pattern in ['/*/*/*/site-packages',
-                    '/*/*/.*/*/*/site-packages',
-                    '/*/*/*/*/*/site-packages']:
+    for pattern in patterns:
         sit_dir = glob.glob(tmpdir + pattern)
         if sit_dir:
             site.addsitedir(sit_dir[0])

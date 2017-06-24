@@ -124,7 +124,7 @@ def install_pydrive(verbose=False):
         get_pip = tmpdir + '/get_pip.py'
         response = urlopen('https://bootstrap.pypa.io/get-pip.py')
 
-        with open(get_pip, 'w') as f:
+        with open(get_pip, 'wb') as f:
             f.write(response.read())
 
         subprocess.call([sys.executable, get_pip,

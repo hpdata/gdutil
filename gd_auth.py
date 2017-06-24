@@ -109,8 +109,9 @@ def install_pydrive(verbose=False):
     tmpdir = tempfile.mkdtemp()
 
     if verbose:
-        sys.stdout.write('pydrive is missing. Temporily installing it...')
-        sys.stdout.flush()
+        sys.stderr.write('PyDrive is unavailable. Installing it into ' +
+                         tmpdir + ' ...')
+        sys.stderr.flush()
 
     try:
         import pip

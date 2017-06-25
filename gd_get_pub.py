@@ -35,7 +35,7 @@ def parse_args(description):
     parser.add_argument('-s', '--size',
                         help='Size of the file.',
                         type=int,
-                        default=0)
+                        default=-1)
 
     parser.add_argument('-q', '--quiet',
                         help='Suppress output.',
@@ -60,6 +60,7 @@ def parse_args(description):
 
 def download_file(file_id, outfile, filesize, quiet=False):
     "Download file with the given file ID from Google Drive"
+    import time
     import requests
 
     URL = "https://drive.google.com/uc?export=download"
@@ -70,21 +71,82 @@ def download_file(file_id, outfile, filesize, quiet=False):
 
     if 'GAPS' in response.cookies.keys():
         sys.stderr.write("Error: Not a public file\n")
-        sys.exit(-1)
+        raise Exception
 
     token = get_confirm_token(response)
 
     if token:
         params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
+    else:
+        params = {'id': file_id}
+
+    response = session.get(URL, params=params, stream=True, timeout=30)
+
+    disposition = response.headers['Content-Disposition']
+    remotefile = disposition[21:disposition.find('"', 21)]
 
     if args.remote:
-        disposition = response.headers['Content-Disposition']
-        outfile = disposition[21:disposition.find('"', 21)]
-        if not args.quiet:
-            sys.stderr.write('Downlading file %s ...\n' % outfile)
+        outfile = remotefile
 
-    return write_response_content(response, outfile, filesize, quiet)
+    if not args.quiet:
+        sys.stderr.write('Downlading %s and saving into %s ...\n' %
+                         (remotefile, outfile))
+
+    # Open file
+    if outfile and outfile != '-':
+        fd = open(outfile, "wb")
+    elif sys.version_info[0] > 2:
+        fd = sys.stdout.buffer
+    else:
+        fd = sys.stdout
+        if sys.platform in ["win32", "win64"]:
+            import os
+            import msvcrt
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+    if not args.quiet:
+        try:
+            from progressbar import ProgressBar, UnknownLength
+
+            if filesize <= 0:
+                filesize = UnknownLength
+
+            bar = ProgressBar(maxval=filesize)
+            bar.start()
+
+        except BaseException:
+            bar = None
+    else:
+        bar = None
+
+    start = time.time()
+
+    count = 0
+    while True:
+        try:
+            count, done, bar = write_response_content(response, fd, count, bar)
+            if done:
+                break
+            else:
+                # Try to recover by continuing from where it was left
+                headers = {"Range": 'bytes=%s-' % count}
+                response = session.get(URL, params=params, headers=headers,
+                                       stream=True, timeout=30)
+        except BaseException:
+            done = False
+            break
+
+    # Close file
+    if outfile and outfile != '-':
+        fd.close()
+    else:
+        sys.stdout.flush()
+
+    elapsed = time.time() - start
+    if bar and done:
+        bar.finish()
+
+    return count, elapsed
 
 
 def get_confirm_token(response):
@@ -97,65 +159,34 @@ def get_confirm_token(response):
     return None
 
 
-def write_response_content(response, outfile, filesize, quiet):
+def write_response_content(response, fd, start, bar):
     """ Write the content into outfile of stdout """
 
-    import time
-
     CHUNK_SIZE = 8 * 1048576
+    count = start
 
-    bar = None
-    count = 0
+    try:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:  # filter out keep-alive new chunks
+                fd.write(chunk)
+                count += len(chunk)
 
-    if not quiet:
-        try:
-            from progressbar import ProgressBar, UnknownLength
+                if bar is not None:
+                    # Initial size was specified incorrectly
+                    try:
+                        bar.update(count)
+                    except BaseException:
+                        from progressbar import ProgressBar, UnknownLength
+                        # Size is larger than specified. Use UnknownLength
+                        bar.finish()
+                        bar = ProgressBar(max_value=UnknownLength)
+                        bar.start()
+                        bar.update(count)
+        done = True
+    except requests.exceptions.ChunkedEncodingError:
+        done = False
 
-            if filesize:
-                bar = ProgressBar(maxval=filesize)
-            else:
-                bar = ProgressBar(maxval=UnknownLength)
-            bar.start()
-
-        except BaseException:
-            pass
-
-    start = time.time()
-    if outfile and outfile != '-':
-        f = open(outfile, "wb")
-    elif sys.version_info[0] > 2:
-        f = sys.stdout.buffer
-    else:
-        f = sys.stdout
-        if sys.platform in ["win32", "win64"]:
-            import os
-            import msvcrt
-            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-
-    for chunk in response.iter_content(CHUNK_SIZE):
-        if chunk:  # filter out keep-alive new chunks
-            f.write(chunk)
-            count += len(chunk)
-
-            if bar is not None:
-                try:
-                    bar.update(count)
-                except BaseException:
-                    # Size is larger than specified. Use UnknownLength
-                    bar.finish()
-                    bar = ProgressBar(max_value=UnknownLength)
-                    bar.start()
-                    bar.update(count)
-
-    if outfile and outfile != '-':
-        f.close()
-    else:
-        sys.stdout.flush()
-
-    if bar is not None and (count == 0 or count == filesize):
-        bar.finish()
-
-    return count, time.time() - start
+    return count, done, bar
 
 
 def sizeof_fmt(num, suffix='B/s'):
@@ -245,10 +276,13 @@ if __name__ == "__main__":
         tmpdir = install_requests(not args.quiet)
         import requests
 
-    sz, elapsed = download_file(
-        args.file_id, args.outfile, args.size, args.quiet)
+    try:
+        sz, elapsed = download_file(
+            args.file_id, args.outfile, args.size, args.quiet)
+    except BaseException:
+        sys.exit(-1)
 
-    if not args.quiet and args.size and sz != args.size:
+    if not args.quiet and args.size > 0 and sz != args.size:
         try:
             use_color = os.environ["LS_COLORS"] != ""
         except BaseException:
@@ -268,7 +302,7 @@ if __name__ == "__main__":
     except:
         hostaddr = ip
 
-    sys.stderr.write("\nDownloaded %s in %.1f seconds at %s from %s\n" %
+    sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
                      (sizeof_fmt(sz, 'B'), elapsed,
                       sizeof_fmt(sz / elapsed), hostaddr))
 

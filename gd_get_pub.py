@@ -3,9 +3,10 @@
 """
 Download a public file from Google Drive.
 
-This module uses the requests package to download a public file identified
-by its file ID. It does not require PyDrive and Google authentication.
-It does not check the correctness of the output either.
+This downloads a public file identified by its file ID. It does not require
+Google authentication. It has built-in error recovery but it does not check
+the checksum of the files. Is is particularly useful as a standalone script
+for downloading test datasets in batch mode.
 """
 
 from __future__ import print_function

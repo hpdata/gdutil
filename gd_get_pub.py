@@ -10,7 +10,6 @@ It does not check the correctness of the output either.
 
 from __future__ import print_function
 
-import requests
 import sys
 
 
@@ -61,6 +60,7 @@ def parse_args(description):
 
 def download_file(file_id, outfile, filesize, quiet=False):
     "Download file with the given file ID from Google Drive"
+    import requests
 
     URL = "https://drive.google.com/uc?export=download"
 
@@ -176,6 +176,10 @@ def install_requests(verbose=False):
     import glob
     import subprocess
 
+    if verbose:
+        sys.stderr.write('Downloading requests...')
+        sys.stderr.flush()
+
     tmpdir = tempfile.mkdtemp()
 
     patterns = ['/*/*/*/site-packages',
@@ -222,8 +226,7 @@ def install_requests(verbose=False):
             break
 
     if verbose:
-        print('Done')
-
+        sys.stderr.write('Done\n')
     return tmpdir
 
 
@@ -240,6 +243,7 @@ if __name__ == "__main__":
         tmpdir = ""
     except:
         tmpdir = install_requests(not args.quiet)
+        import requests
 
     sz, elapsed = download_file(
         args.file_id, args.outfile, args.size, args.quiet)

@@ -166,12 +166,80 @@ def sizeof_fmt(num, suffix='B/s'):
     return "%.1f%s%s" % (num, 'Y', suffix)
 
 
+def install_requests(verbose=False):
+    """
+    Install requests to a temporary directory if needed
+    """
+
+    import tempfile
+    import site
+    import glob
+    import subprocess
+
+    tmpdir = tempfile.mkdtemp()
+
+    patterns = ['/*/*/*/site-packages',
+                '/*/*/.*/*/*/site-packages',
+                '/*/*/*/*/*/site-packages',
+                '/*/*/*/*/*/*/site-packages',
+                '/*/*/*/*/*/*/*/site-packages']
+    try:
+        import pip
+    except:
+        # Try to install pip from source
+        if sys.version_info.major > 2:
+            from urllib.request import urlopen
+        else:
+            from urllib2 import urlopen
+
+        get_pip = tmpdir + '/get_pip.py'
+        response = urlopen('https://bootstrap.pypa.io/get-pip.py')
+
+        with open(get_pip, 'wb') as f:
+            f.write(response.read())
+
+        subprocess.call([sys.executable, get_pip,
+                         '-q', '--prefix=' + tmpdir])
+
+        # Refresh path
+        for pattern in patterns:
+            sit_dir = glob.glob(tmpdir + pattern)
+            if sit_dir:
+                site.addsitedir(sit_dir[0])
+                break
+        import pip
+
+    try:
+        pip.main(['install', '-q', '--user', '--root', tmpdir,
+                  'requests', 'progressbar2'])
+    except:
+        pass
+
+    for pattern in patterns:
+        sit_dir = glob.glob(tmpdir + pattern)
+        if sit_dir:
+            site.addsitedir(sit_dir[0])
+            break
+
+    if verbose:
+        print('Done')
+
+    return tmpdir
+
+
 if __name__ == "__main__":
     import os
     import socket
+    import shutil
 
     # Process command-line arguments
     args = parse_args(description=__doc__)
+
+    try:
+        __import__('requests')
+        tmpdir = ""
+    except:
+        tmpdir = install_requests(not args.quiet)
 
     sz, elapsed = download_file(
         args.file_id, args.outfile, args.size, args.quiet)
@@ -195,6 +263,10 @@ if __name__ == "__main__":
         hostaddr = socket.gethostbyaddr(ip)[0]
     except:
         hostaddr = ip
+
     sys.stderr.write("\nDownloaded %s in %.1f seconds at %s from %s\n" %
                      (sizeof_fmt(sz, 'B'), elapsed,
                       sizeof_fmt(sz / elapsed), hostaddr))
+
+    if tmpdir:
+        shutil.rmtree(tmpdir)

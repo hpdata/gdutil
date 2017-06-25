@@ -239,7 +239,7 @@ if __name__ == "__main__":
     args = parse_args(description=__doc__)
 
     try:
-        __import__('requests')
+        import requests
         tmpdir = ""
     except:
         tmpdir = install_requests(not args.quiet)

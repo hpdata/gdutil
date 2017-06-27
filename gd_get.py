@@ -21,7 +21,7 @@ def parse_args(description):
     # Process command-line arguments
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument('-sz', '--parent',
+    parser.add_argument('-p', '--parent',
                         help='ID of parent folder in Google Drive',
                         default="root")
 

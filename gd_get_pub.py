@@ -57,40 +57,45 @@ def parse_args(description):
     return args
 
 
-def download_file(file_id, outfile, filesize, quiet=False):
-    "Download file with the given file ID from Google Drive"
-    import time
+def get_request(file_id, headers=None):
+    'Get a request for the given file ID'
     import requests
 
     URL = "https://drive.google.com/uc?export=download"
-
     session = requests.Session()
 
-    response = session.get(
-        URL, params={'id': file_id}, stream=True, timeout=30)
+    params = {'id': file_id}
+    req = session.get(URL, params=params, headers=headers, stream=True)
 
     # Check errors and confirmation code
-    if 'GAPS' in response.cookies.keys():
+    if 'GAPS' in req.cookies.keys():
         sys.stderr.write("Error: Not a public file\n")
         raise Exception
 
-    token = get_confirm_token(response)
+    token = get_confirm_token(req)
 
-    if not token and 'NID' in response.cookies.keys():
+    if not token and 'NID' in req.cookies.keys():
         sys.stderr.write("Error: File does not exist\n")
         raise Exception
 
     if token:
         params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True, timeout=30)
-    else:
-        params = {'id': file_id}
+        req = session.get(URL, params=params, headers=headers, stream=True)
+
+    return req
+
+
+def download_file(file_id, outfile, filesize, quiet=False):
+    "Download file with the given file ID from Google Drive"
+    import time
+
+    req = get_request(file_id)
 
     # Get filesize and file name
-    if filesize <= 0 and 'Content-Length' in response.headers.keys():
-        filesize = int(response.headers['Content-Length'])
+    if filesize <= 0 and 'Content-Length' in req.headers.keys():
+        filesize = int(req.headers['Content-Length'])
 
-    disposition = response.headers['Content-Disposition']
+    disposition = req.headers['Content-Disposition']
     remotefile = disposition[21:disposition.find('"', 21)]
 
     if args.remote:
@@ -131,15 +136,14 @@ def download_file(file_id, outfile, filesize, quiet=False):
     count = 0
     while True:
         try:
-            count, interrupted, done, bar = write_response_content(
-                response, fd, count, bar)
+            count, interrupted, done, bar = write_req_content(
+                req, fd, count, bar)
             if interrupted or done:
                 break
             else:
                 # Try to recover by continuing from where it was left
                 headers = {"Range": 'bytes=%s-' % count}
-                response = session.get(URL, params=params, headers=headers,
-                                       stream=True, timeout=30)
+                req = get_request(file_id, headers)
         except BaseException:
             done = False
             break
@@ -157,25 +161,27 @@ def download_file(file_id, outfile, filesize, quiet=False):
     return count, elapsed
 
 
-def get_confirm_token(response):
-    "Obtain confirmation token from response"
+def get_confirm_token(req):
+    "Obtain confirmation token from req"
 
-    for key, value in response.cookies.items():
+    for key, value in req.cookies.items():
         if key.startswith('download_warning'):
             return value
 
     return None
 
 
-def write_response_content(response, fd, start, bar):
+def write_req_content(req, fd, start, bar):
     """ Write the content into outfile of stdout """
+    import requests
 
-    CHUNK_SIZE = 8 * 1048576
+    mega = 1048576
+    CHUNK_SIZE = 8 * mega
+
     count = start
     interrupted = False
-
     try:
-        for chunk in response.iter_content(CHUNK_SIZE):
+        for chunk in req.iter_content(CHUNK_SIZE):
             if chunk:  # filter out keep-alive new chunks
                 fd.write(chunk)
                 count += len(chunk)
@@ -195,7 +201,7 @@ def write_response_content(response, fd, start, bar):
     except KeyboardInterrupt:
         done = False
         interrupted = True
-    except requests.exceptions.ChunkedEncodingError:
+    except requests.exceptions.RequestException:
         done = False
 
     return count, interrupted, done, bar
@@ -240,10 +246,10 @@ def install_requests(verbose=False):
             from urllib2 import urlopen
 
         get_pip = tmpdir + '/get_pip.py'
-        response = urlopen('https://bootstrap.pypa.io/get-pip.py')
+        req = urlopen('https://bootstrap.pypa.io/get-pip.py')
 
         with open(get_pip, 'wb') as f:
-            f.write(response.read())
+            f.write(req.read())
 
         subprocess.call([sys.executable, get_pip,
                          '-q', '--prefix=' + tmpdir])

@@ -352,7 +352,7 @@ def download_file(file1, auth, args):
             sys.stderr.write('\n')
 
     if not args.quiet:
-        sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
+        sys.stderr.write("Downloaded %s in %.1f seconds at %s to %s\n" %
                          (sizeof_fmt(sz - pstart, 'B'), elapsed,
                           sizeof_fmt((sz - pstart) / elapsed), hostaddr))
 

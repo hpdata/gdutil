@@ -23,15 +23,6 @@ matrix:
       python: "3.6"
       dist: trusty
       env: PYTHON=python3 PIP=pip3 AWS=1
-    # OSX is very slow
-    - os: osx
-      language: C
-      env: PYTHON=python PIP=pip
-    - os: osx
-      language: C
-      env: PYTHON=python3 PIP=pip3
-      before_install:
-        - brew install python3
 
 script:
   - $PYTHON --version

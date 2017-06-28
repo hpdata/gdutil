@@ -5,11 +5,9 @@ Download a public file from Google Drive.
 
 This downloads a public file identified by its file ID. It does not require
 Google authentication. It has built-in error recovery but it does not check
-the checksum of the files. Is is particularly useful as a standalone script
+the checksum of the files. Is is mostly useful as a standalone script
 for downloading test datasets in batch mode.
 """
-
-from __future__ import print_function
 
 import sys
 
@@ -68,20 +66,29 @@ def download_file(file_id, outfile, filesize, quiet=False):
 
     session = requests.Session()
 
-    response = session.get(URL, params={'id': file_id}, stream=True)
+    response = session.get(
+        URL, params={'id': file_id}, stream=True, timeout=30)
 
+    # Check errors and confirmation code
     if 'GAPS' in response.cookies.keys():
         sys.stderr.write("Error: Not a public file\n")
         raise Exception
 
     token = get_confirm_token(response)
 
+    if not token and 'NID' in response.cookies.keys():
+        sys.stderr.write("Error: File does not exist\n")
+        raise Exception
+
     if token:
         params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True, timeout=30)
     else:
         params = {'id': file_id}
 
-    response = session.get(URL, params=params, stream=True, timeout=30)
+    # Get filesize and file name
+    if filesize <= 0 and 'Content-Length' in response.headers.keys():
+        filesize = int(response.headers['Content-Length'])
 
     disposition = response.headers['Content-Disposition']
     remotefile = disposition[21:disposition.find('"', 21)]
@@ -112,9 +119,8 @@ def download_file(file_id, outfile, filesize, quiet=False):
             if filesize <= 0:
                 filesize = UnknownLength
 
-            bar = ProgressBar(maxval=filesize)
+            bar = ProgressBar(max_value=filesize)
             bar.start()
-
         except BaseException:
             bar = None
     else:
@@ -125,8 +131,9 @@ def download_file(file_id, outfile, filesize, quiet=False):
     count = 0
     while True:
         try:
-            count, done, bar = write_response_content(response, fd, count, bar)
-            if done:
+            count, interrupted, done, bar = write_response_content(
+                response, fd, count, bar)
+            if interrupted or done:
                 break
             else:
                 # Try to recover by continuing from where it was left
@@ -165,6 +172,7 @@ def write_response_content(response, fd, start, bar):
 
     CHUNK_SIZE = 8 * 1048576
     count = start
+    interrupted = False
 
     try:
         for chunk in response.iter_content(CHUNK_SIZE):
@@ -184,10 +192,13 @@ def write_response_content(response, fd, start, bar):
                         bar.start()
                         bar.update(count)
         done = True
+    except KeyboardInterrupt:
+        done = False
+        interrupted = True
     except requests.exceptions.ChunkedEncodingError:
         done = False
 
-    return count, done, bar
+    return count, interrupted, done, bar
 
 
 def sizeof_fmt(num, suffix='B/s'):
@@ -303,9 +314,10 @@ if __name__ == "__main__":
     except:
         hostaddr = ip
 
-    sys.stderr.write("Downloaded %s in %.1f seconds at %s from %s\n" %
-                     (sizeof_fmt(sz, 'B'), elapsed,
-                      sizeof_fmt(sz / elapsed), hostaddr))
+    if not args.quiet:
+        sys.stderr.write("Downloaded %s in %.1f seconds at %s to %s\n" %
+                         (sizeof_fmt(sz, 'B'), elapsed,
+                          sizeof_fmt(sz / elapsed), hostaddr))
 
     if tmpdir:
         shutil.rmtree(tmpdir)

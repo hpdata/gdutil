@@ -80,6 +80,13 @@ def authenticate(conf_dir, cmdline=False, verbose=False):
         try:
             if cmdline:
                 gauth.CommandLineAuth()
+            elif os.getenv('LD_LIBRARY_PATH', '').find('MATLAB'):
+                # If is running in MATLAB, unset LD_LIBRARY_PATH
+                # during authentication
+                oldenv = os.environ['LD_LIBRARY_PATH']
+                os.environ['LD_LIBRARY_PATH'] = ''
+                gauth.LocalWebserverAuth()
+                os.environ['LD_LIBRARY_PATH'] = oldenv
             else:
                 # Authenticate if the credential does not exist
                 gauth.LocalWebserverAuth()

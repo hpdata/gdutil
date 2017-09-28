@@ -27,7 +27,7 @@ matrix:
 script:
   - $PYTHON --version
   - ifconfig
-  - $PIP install --ignore-installed -r requirements.txt
+  - sudo $PIP install --ignore-installed -r requirements.txt
   - echo "$CRED" > mycred.txt
   - $PYTHON gd_list.py
   - echo "Testing gd-get" &&

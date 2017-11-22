@@ -10,7 +10,7 @@ matrix:
       python: "3.5"
       dist: trusty
       sudo: required
-      env: PYTHON=python3 PIP=pip3 GOOGLE=1
+      env: PYTHON=python3 PIP=pip GOOGLE=1
     # Linux with sudo is hosted on AWS
     - os: linux
       python: "2.7"
@@ -22,7 +22,7 @@ matrix:
       language: python
       python: "3.5"
       dist: trusty
-      env: PYTHON=python3 PIP=pip3 AWS=1
+      env: PYTHON=python3 PIP=pip AWS=1
 
 script:
   - $PYTHON --version

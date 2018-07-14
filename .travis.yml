@@ -25,10 +25,10 @@ script:
   - sudo $PIP install --ignore-installed -r requirements.txt
   - echo "$CRED" > mycred.txt
   - $PYTHON gd_list.py
-  - echo "Testing gd-get" &&
-    $PYTHON gd_get.py -i "$ACCESSCODE" -o /tmp/test.tgz &&
-    rm -rf /tmp/test.tgz
+  # echo "Testing gd-get" &&
+  #  $PYTHON gd_get.py -i "$ACCESSCODE" -o /tmp/test.tgz &&
+  #  rm -rf /tmp/test.tgz
   - echo "Testing gd-get-pub" &&
     $PYTHON gd_get_pub.py -i "$ACCESSCODE" -o /tmp/test.tgz &&
     rm -rf /tmp/test.tgz
-  - $PYTHON gd_get.py -i "$ACCESSCODE" | echo > /dev/null
+  # $PYTHON gd_get.py -i "$ACCESSCODE" | echo > /dev/null

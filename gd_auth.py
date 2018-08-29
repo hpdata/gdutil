@@ -18,7 +18,7 @@ def authenticate(conf_dir, cmdline=False, verbose=False):
     import os.path
     from httplib2 import Http
 
-    # Authenticate Google account and intialize caching
+    # Authenticate Google account and initialize caching
     gauth = GoogleAuth()
     gauth.http = Http(cache=os.path.expanduser('~') + '/.cache/gdutil')
 

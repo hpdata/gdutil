@@ -9,27 +9,6 @@ from progressbar import widgets, utils
 UnknownLength = progressbar.UnknownLength
 
 
-class ResumableETA(progressbar.AdaptiveETA):
-    '''WidgetBase which attempts to estimate the time of arrival.
-    '''
-
-    def __call__(self, progress, data):
-        times, values = widgets.SamplesMixin.__call__(self, progress, data)
-
-        if values[0] == progress.min_value:
-            values[0] = progress.initial_value
-
-        if len(times) <= 1:
-            # No samples so just return the normal ETA calculation
-            value = None
-            elapsed = 0
-        else:
-            value = values[-1] - values[0]
-            elapsed = utils.timedelta_to_seconds(times[-1] - times[0])
-
-        return progressbar.ETA.__call__(self, progress, data, value=value, elapsed=elapsed)
-
-
 class ResumableBar(progressbar.ProgressBar):
     '''
     A progress bar with sensible defaults for downloads etc.
@@ -55,7 +34,7 @@ class ResumableBar(progressbar.ProgressBar):
                     **self.widget_kwargs),
                 ' ', widgets.Bar(**self.widget_kwargs),
                 ' ', widgets.Timer(**self.widget_kwargs),
-                ' ', ResumableETA(),
+                ' ', progressbar.AdaptiveETA(),
             ]
         else:
             return [
